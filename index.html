@@ -202,7 +202,7 @@ def analyze_data_core(df, fp_list):
 
         df['Zero_Between_Positive'] = False
         for meter_number in df['Meter Number'].unique():
-            meter_data = df[df['Meter Number'] == meter_number].sort_values('Start Date').reset_index()
+            meter_data = df[df['Meter Number'] == meter_number].sort_values('Start Date')
             for i in range(1, len(meter_data) - 1):
                 if meter_data.loc[i-1, 'Usage'] > 0 and meter_data.loc[i, 'Usage'] == 0 and meter_data.loc[i+1, 'Usage'] > 0 and meter_data.loc[i, 'Start Date'] > meter_data.loc[i-1, 'End Date']:
                     idxs = [meter_data.loc[i - 1, 'index'], meter_data.loc[i, 'index'], meter_data.loc[i + 1, 'index']]
