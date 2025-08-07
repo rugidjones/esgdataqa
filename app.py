@@ -327,8 +327,19 @@ def analyze():
     
     # Read the data file into a pandas DataFrame
     try:
-        raw_data_stream = io.BytesIO(raw_data_file.read())
-        df = pd.read_excel(raw_data_stream, sheet_name='Raw_Data_Table_S2', engine='openpyxl')
+        # --- FIX: Read the Excel file with more robust error handling for sheet names ---
+        excel_file = pd.ExcelFile(raw_data_file, engine='openpyxl')
+        
+        # Search for a sheet with "Raw_Data_Table" in its name (case-insensitive)
+        sheet_names = [name for name in excel_file.sheet_names if "raw_data_table" in name.lower()]
+        
+        if not sheet_names:
+            return jsonify({"error": "No sheet named 'Raw_Data_Table' found. Please check your sheet names."}), 400
+        
+        sheet_name = sheet_names[0]
+        df = pd.read_excel(excel_file, sheet_name=sheet_name)
+        # --- END FIX ---
+
     except Exception as e:
         return jsonify({"error": f"Error reading raw data file: {e}"}), 400
 
