@@ -241,6 +241,7 @@ def analyze_data_core(df, fp_list):
 
         df['is_false_positive'] = False
         df.loc[df['Location Bill ID'].isin(fp_list), 'is_false_positive'] = True
+        print(f"Applying false positive filter for '{client_name}'...")
 
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
