@@ -35,22 +35,19 @@ except ImportError:
 
 app = Flask(__name__)
 
+# The false positive list is now handled by the upload, so we don't need a file on the server.
+FALSE_POSITIVE_LIST = []
+
 def get_false_positive_list(client_name):
     """
     Reads the false positive list from an uploaded text file for a given client.
     This version is adapted for the web app's file handling.
     """
-    file_name = f"false_positives_{client_name}.txt"
-    if os.path.exists(file_name):
-        with open(file_name, 'r') as f:
-            fp_list = [int(line.strip()) for line in f if line.strip()]
-        print(f"Loaded {len(fp_list)} false positives for '{client_name}'.")
-        return fp_list
-    else:
-        print(f"Warning: No false positive file found for '{client_name}'. No filters will be applied.")
-        return []
+    # This function is now largely for demonstration within the core logic;
+    # the web endpoint will pass the list directly.
+    return FALSE_POSITIVE_LIST
 
-def analyze_data_core(df, client_name, fp_list):
+def analyze_data_core(df, fp_list):
     """
     Performs the core data analysis logic.
     This function is a refactoring of your original script,
