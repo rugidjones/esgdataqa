@@ -35,9 +35,6 @@ except ImportError:
 
 app = Flask(__name__)
 
-# The false positive list is now handled by the upload, so we don't need a file on the server.
-FALSE_POSITIVE_LIST = []
-
 def get_false_positive_list(fp_file):
     """
     Reads the false positive list from an uploaded text file.
@@ -241,7 +238,6 @@ def analyze_data_core(df, fp_list):
 
         df['is_false_positive'] = False
         df.loc[df['Location Bill ID'].isin(fp_list), 'is_false_positive'] = True
-        print(f"Applying false positive filter for '{client_name}'...")
 
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
@@ -316,6 +312,18 @@ def analyze_data_core(df, fp_list):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
+
+# The following two functions are for the Colab notebook experience and not used by the web app
+# They are kept here for the Colab version of the script
+
+# def generate_summary_plots(df):
+#     # ... (code for plotting)
+#     pass
+
+# def display_interactive_table(df):
+#     # ... (code for interactive table)
+#     pass
+
 
 @app.route('/', methods=['GET'])
 def index():
