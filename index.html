@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utility Data Analyzer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        input[type="file"], input[type="text"] {
+            margin: 1em 0;
+            padding: 0.5em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 1em 2em;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 1em 0;
+            cursor: pointer;
+            border-radius: 4px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .loading {
+            display: none;
+            margin-top: 1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Utility Data Analyzer</h1>
+        <p>Upload your Excel data and a false positive file to generate a cleaned report.</p>
+        <form id="uploadForm">
+            <input type="file" id="raw_data_file" name="raw_data_file" accept=".xlsx" required>
+            <input type="file" id="fp_file" name="fp_file" accept=".txt">
+            <button type="submit">Run Analysis</button>
+        </form>
+        <div class="loading" id="loadingMessage">
+            Processing... Please wait.
+        </div>
+    </div>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const loadingMessage = document.getElementById('loadingMessage');
+            loadingMessage.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('raw_data_file', document.getElementById('raw_data_file').files[0]);
+            const fpFile = document.getElementById('fp_file').files[0];
+            if (fpFile) {
+                formData.append('fp_file', fpFile);
+            }
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'cleaned_data.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    loadingMessage.style.display = 'none';
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.error);
+                    loadingMessage.style.display = 'none';
+                }
+            } catch (error) {
+                alert('An unexpected error occurred: ' + error);
+                loadingMessage.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
