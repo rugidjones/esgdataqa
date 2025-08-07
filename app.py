@@ -265,9 +265,6 @@ def analyze_data_core(df, fp_list):
         
         df_filtered_for_tabs = df[df['is_false_positive'] == False].copy()
 
-        # The rest of the Excel writing logic is the same...
-        # ...
-        
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, sheet_name='Sheet1', index=False)
@@ -359,4 +356,3 @@ if __name__ == '__main__':
     # For local development
     # Render will use gunicorn and a different entrypoint
     app.run(host='0.0.0.0', port=5000, debug=True)
-```html
