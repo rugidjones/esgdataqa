@@ -313,18 +313,6 @@ def analyze_data_core(df, fp_list):
         print(f"An error occurred: {e}")
         return None
 
-# The following two functions are for the Colab notebook experience and not used by the web app
-# They are kept here for the Colab version of the script
-
-# def generate_summary_plots(df):
-#     # ... (code for plotting)
-#     pass
-
-# def display_interactive_table(df):
-#     # ... (code for interactive table)
-#     pass
-
-
 @app.route('/', methods=['GET'])
 def index():
     return send_file('index.html')
