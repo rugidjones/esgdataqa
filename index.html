@@ -133,10 +133,32 @@
         </div>
     </div>
     <script>
+        // --- NEW: Dynamic loading messages ---
+        const loadingMessages = [
+            "Boop beep... shooting lasers.",
+            "Running complex math... for science!",
+            "Beep boop... sorting the bits.",
+            "Almost there... just a few more seconds, I think?",
+            "Sorry for the wait, I'm usually faster!",
+            "I'm giving this my full 110%... actually, 111%."
+        ];
+        let messageIndex = 0;
+        let messageInterval;
+        // --- END NEW ---
+
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const loadingMessage = document.getElementById('loadingMessage');
             loadingMessage.style.display = 'block';
+
+            // --- NEW: Start cycling through messages ---
+            messageIndex = 0;
+            loadingMessage.innerText = loadingMessages[messageIndex];
+            messageInterval = setInterval(() => {
+                messageIndex = (messageIndex + 1) % loadingMessages.length;
+                loadingMessage.innerText = loadingMessages[messageIndex];
+            }, 3000); // Change message every 3 seconds
+            // --- END NEW ---
 
             const formData = new FormData();
             formData.append('raw_data_file', document.getElementById('raw_data_file').files[0]);
@@ -151,6 +173,10 @@
                     body: formData
                 });
 
+                // --- NEW: Stop cycling through messages on success/failure ---
+                clearInterval(messageInterval);
+                // --- END NEW ---
+
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -162,17 +188,22 @@
                     a.click();
                     window.URL.revokeObjectURL(url);
                     loadingMessage.style.display = 'none';
+                    loadingMessage.innerText = "Processing... Please wait."; // Reset text
                 } else {
                     const error = await response.json();
                     alert('Error: ' + error.error);
                     loadingMessage.style.display = 'none';
+                    loadingMessage.innerText = "Processing... Please wait."; // Reset text
                 }
             } catch (error) {
+                // --- NEW: Stop cycling through messages on unexpected error ---
+                clearInterval(messageInterval);
+                // --- END NEW ---
                 alert('An unexpected error occurred: ' + error);
                 loadingMessage.style.display = 'none';
+                loadingMessage.innerText = "Processing... Please wait."; // Reset text
             }
         });
-        // --- Version 2.1 - Triggering a new deploy on Render ---
     </script>
 </body>
 </html>
