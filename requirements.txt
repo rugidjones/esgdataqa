@@ -3,4 +3,3 @@ pandas
 xlsxwriter
 openpyxl
 gunicorn
-numpy
