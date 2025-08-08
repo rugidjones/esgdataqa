@@ -240,7 +240,7 @@ def analyze_data_core(df, fp_list):
         df.loc[df['Location Bill ID'].isin(fp_list), 'is_false_positive'] = True
 
         core_identifying_columns = [
-            'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
+            'Property Name', 'Location Bill Id', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
             'Usage', 'Cost', 'Service Address', 'Document'
         ]
