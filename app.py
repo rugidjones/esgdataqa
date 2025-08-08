@@ -290,8 +290,8 @@ def analyze_data_and_generate_report(df_generator, fp_list):
             anomaly_data['Bills After Sale Date'].append(chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['Bill_After_Sold_Date'] == True])
         if not chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['Zero_Between_Positive'] == True].empty:
             anomaly_data['Zero_Between_Positive'].append(chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['Zero_Between_Positive'] == True])
-        if not chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['No_Recent_Data_Flag'] == True].empty:
-            anomaly_data['No Recent Data Meters'].append(chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['No_Recent_Data_Flag'] == True])
+        if not chunk_df_filtered_for_tabs[chunk_df_processed['No_Recent_Data_Flag'] == True].empty: # Use processed chunk here
+            anomaly_data['No Recent Data Meters'].append(chunk_df_processed[chunk_df_processed['No_Recent_Data_Flag'] == True])
         if not chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['New_Bill_Usage_Anomaly'] == True].empty:
             anomaly_data['New Bill Anomalies'].append(chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['New_Bill_Usage_Anomaly'] == True])
         if not chunk_df_filtered_for_tabs[chunk_df_filtered_for_tabs['Duplicate'] == True].empty:
@@ -330,146 +330,6 @@ def analyze():
         
         # This generator will yield chunks of the dataframe
         df_generator = pd.read_excel(raw_data_file, sheet_name=sheet_name, chunksize=1000, engine='openpyxl')
-
-        # Get the false positive list if a file was uploaded
-        fp_file = request.files.get('fp_file')
-        fp_list = []
-        if fp_file and fp_file.filename != '':
-            fp_list = get_false_positive_list(fp_file)
-
-        # Process each chunk
-        processed_chunks = []
-        anomaly_data = {
-            'Recently Modified Bills': [], 'High Value Anomalies': [], 'Negative Usage Records': [],
-            'Rate Anomalies': [], 'Zero Cost Positive Usage': [], 'Bills After Sale Date': [],
-            'Zero_Between_Positive': [], 'No Recent Data Meters': [], 'New Bill Anomalies': [],
-            'HCF Mismatch': [], 'Duplicate Records': [], 'Gap Records': []
-        }
-
-        # A flag to track if any error occurred during chunk processing
-        analysis_successful = True
-
-        for chunk_df in df_generator:
-            try:
-                # Apply the core logic to the current chunk
-                # Note: df_generator is already a DataFrame
-                chunk_df_processed = chunk_df.copy() # Avoid modifying the chunk directly
-                
-                # --- APPLY CORE LOGIC (as in the analyze_data_core function before) ---
-                
-                # --- Renaming columns ---
-                column_mapping = {
-                    'Property Name': 'Property Name', 'Conservice Id': 'Conservice ID or Yoda Prop Code',
-                    'Location Bill Id': 'Location Bill ID', 'Account Number': 'Account Number',
-                    'Control Number': 'Control Number', 'Legal Vendor Name': 'Provider Name',
-                    'Service Type': 'Utility', 'Meter Number': 'Meter Number',
-                    'Add\'l Meter Name': 'Unique Meter ID', 'Start Date': 'Start Date',
-                    'End Date': 'End Date', 'Use': 'Usage', 'Cost': 'Cost',
-                    'Documentation': 'Document'
-                }
-                chunk_df_processed.rename(columns=column_mapping, inplace=True)
-
-                if 'Account Number' in chunk_df_processed.columns:
-                    chunk_df_processed = chunk_df_processed[chunk_df_processed['Account Number'].astype(str) != '~NA~'].copy()
-
-                essential_columns = ['Meter Number', 'Start Date', 'End Date', 'Usage', 'Cost', 'Service Address']
-                missing_columns = [col for col in essential_columns if col not in chunk_df_processed.columns]
-                if missing_columns:
-                    raise ValueError(f"Missing essential columns: {', '.join(missing_columns)}")
-
-                for col in ['Gross Square Footage', 'Common Area SF']:
-                    if col not in chunk_df_processed.columns:
-                        logging.warning(f"'{col}' column not found in source file.")
-
-                chunk_df_processed['Start Date'] = pd.to_datetime(chunk_df_processed['Start Date'])
-                chunk_df_processed['End Date'] = pd.to_datetime(chunk_df_processed['End Date'])
-
-                if 'Created Date' in chunk_df_processed.columns:
-                    chunk_df_processed['Created Date'] = pd.to_datetime(chunk_df_processed['Created Date'])
-                if 'Last Modified Date' in chunk_df_processed.columns:
-                    chunk_df_processed['Last Modified Date'] = pd.to_datetime(chunk_df_processed['Last Modified Date'])
-                else:
-                    chunk_df_processed['Last Modified Date'] = pd.NaT
-
-                if 'Sold' in chunk_df_processed.columns:
-                    chunk_df_processed['Sold'] = pd.to_datetime(chunk_df_processed['Sold'], errors='coerce')
-                else:
-                    chunk_df_processed['Sold'] = pd.NaT
-
-                chunk_df_processed['Usage'] = pd.to_numeric(chunk_df_processed['Usage'], errors='coerce')
-                chunk_df_processed['Cost'] = pd.to_numeric(chunk_df_processed['Cost'], errors='coerce')
-                chunk_df_processed = chunk_df_processed.dropna(subset=['Usage', 'Cost'])
-                chunk_df_processed = chunk_df_processed.sort_values(by=['Meter Number', 'Start Date'])
-                
-                # All other processing logic, including Z-scores, flags, etc.
-                # This needs to be applied to the chunk_df_processed
-
-                # ... (All of your data processing logic, moved here) ...
-
-                # Now, collect anomaly data from this chunk
-                df_filtered_for_tabs = chunk_df_processed[chunk_df_processed['is_false_positive'] == False].copy()
-
-                for tab_name, data_list in anomaly_data.items():
-                    if tab_name == 'Recently Modified Bills' and not df_filtered_for_tabs[(df_filtered_for_tabs['Recently_Updated'] == True)].empty:
-                        data_list.append(df_filtered_for_tabs[(df_filtered_for_tabs['Recently_Updated'] == True)].copy())
-                    elif tab_name == 'High Value Anomalies' and not df_filtered_for_tabs[((df_filtered_for_tabs['Usage Z Score'].abs() > 3.0) | (df_filtered_for_tabs['Inspect_Usage_per_SF'] == 'red'))].empty:
-                         data_list.append(df_filtered_for_tabs[((df_filtered_for_tabs['Usage Z Score'].abs() > 3.0) | (df_filtered_for_tabs['Inspect_Usage_per_SF'] == 'red'))].copy())
-                    # ... add similar logic for all other tabs ...
-
-                processed_chunks.append(chunk_df_processed)
-
-            except Exception as e:
-                logging.error(f"Error processing a data chunk: {e}")
-                analysis_successful = False
-                break
-
-        if not analysis_successful:
-            return None
-
-        # Concatenate all processed chunks and anomaly dataframes
-        final_df = pd.concat(processed_chunks, ignore_index=True)
-        final_anomaly_data = {
-            name: pd.concat(data_list, ignore_index=True) if data_list else pd.DataFrame()
-            for name, data_list in anomaly_data.items()
-        }
-
-        # Save to output stream
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            final_df.to_excel(writer, sheet_name='Sheet1', index=False)
-            for name, df_tab in final_anomaly_data.items():
-                if not df_tab.empty:
-                    df_tab.to_excel(writer, sheet_name=name, index=False)
-
-        output.seek(0)
-        return output
-    except Exception as e:
-        logging.error(f"Analysis error: {e}")
-        return None
-
-@app.route('/', methods=['GET'])
-def index():
-    return send_file('index.html')
-
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    # Check for file uploads
-    if 'raw_data_file' not in request.files:
-        return jsonify({"error": "No raw data file provided"}), 400
-    
-    raw_data_file = request.files['raw_data_file']
-    
-    # Read the data file into a pandas DataFrame
-    try:
-        excel_file = pd.ExcelFile(raw_data_file, engine='openpyxl')
-        sheet_names = [name for name in excel_file.sheet_names if "raw_data_table" in name.lower()]
-        
-        if not sheet_names:
-            return jsonify({"error": "No sheet named 'Raw_Data_Table' found. Please check your sheet names."}), 400
-        
-        sheet_name = sheet_names[0]
-        # Read the Excel file in chunks
-        df_generator = pd.read_excel(raw_data_file, sheet_name=sheet_name, chunksize=5000, engine='openpyxl')
 
     except Exception as e:
         return jsonify({"error": f"Error reading raw data file: {e}"}), 400
