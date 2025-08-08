@@ -52,7 +52,7 @@ def get_false_positive_list(fp_file):
         logging.error(f"Error reading false positive file: {e}")
         return []
 
-def analyze_data_core(df, fp_list):
+def analyze_data_and_generate_report(df, fp_list):
     """
     Performs the core data analysis logic and returns a BytesIO object
     containing the multi-tabbed Excel file.
