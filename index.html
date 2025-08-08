@@ -152,23 +152,16 @@
                 });
 
                 if (response.ok) {
-                    const contentType = response.headers.get("Content-Type");
-                    if (contentType && contentType.includes("application/json")) {
-                        const error = await response.json();
-                        alert('Error: ' + error.error);
-                        loadingMessage.style.display = 'none';
-                    } else {
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.style.display = 'none';
-                        a.href = url;
-                        a.download = 'cleaned_data.xlsx';
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        loadingMessage.style.display = 'none';
-                    }
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'cleaned_data.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    loadingMessage.style.display = 'none';
                 } else {
                     const error = await response.json();
                     alert('Error: ' + error.error);
