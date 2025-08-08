@@ -13,6 +13,10 @@ import io
 from flask import Flask, request, jsonify, send_file
 import sys
 import subprocess
+import logging
+
+# Configure logging for production environment
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
@@ -45,10 +49,10 @@ def get_false_positive_list(fp_file):
         fp_list = [int(line.strip()) for line in fp_file.read().decode('utf-8').splitlines() if line.strip()]
         return fp_list
     except Exception as e:
-        print(f"Error reading false positive file: {e}")
+        logging.error(f"Error reading false positive file: {e}")
         return []
 
-def analyze_data_core(df, fp_list):
+def analyze_data_and_generate_report(df, fp_list):
     """
     Performs the core data analysis logic and returns a BytesIO object
     containing the multi-tabbed Excel file.
@@ -130,7 +134,6 @@ def analyze_data_core(df, fp_list):
             df['Duplicate'] = df_clean.duplicated(subset=actual_duplicate_subset, keep=False)
         else:
             df['Duplicate'] = False
-            print("Warning: No valid columns found for duplicate detection. 'Duplicate' column set to False for all rows.")
 
         usage_mean = df['Usage'].dropna().mean(); usage_std = df['Usage'].dropna().std()
         df['Usage Z Score'] = (df['Usage'] - usage_mean) / usage_std if usage_std != 0 else np.nan
