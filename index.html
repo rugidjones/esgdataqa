@@ -23,11 +23,13 @@
             color: white;
             padding: 20px;
             box-sizing: border-box;
+            overflow-y: auto;
         }
 
         .sidebar h2 {
             font-size: 20px;
             margin-top: 0;
+            text-align: center;
         }
 
         .sidebar ul {
@@ -48,6 +50,10 @@
             flex-grow: 1;
             padding: 40px;
             background-color: #ecf0f1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
         }
 
         .upload-box {
@@ -56,7 +62,7 @@
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             max-width: 600px;
-            margin: auto;
+            width: 100%;
             text-align: center;
         }
 
@@ -64,30 +70,57 @@
             margin-top: 0;
         }
 
+        .upload-box img {
+            width: 250px;
+            height: auto;
+            margin-bottom: 1em;
+        }
+        
+        .upload-box p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 2em;
+        }
+
+        .file-input-container {
+            text-align: left;
+            margin-bottom: 1em;
+        }
+        .file-input-label {
+            display: block;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }
+        
         input[type="file"] {
-            margin-top: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
         }
 
         button {
-            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
             padding: 10px 20px;
-            font-size: 16px;
-            background-color: #3498db;
             border: none;
             border-radius: 5px;
-            color: white;
             cursor: pointer;
+            margin-top: 20px;
+            font-size: 16px;
+            width: 100%;
         }
 
         button:hover {
-            background-color: #2980b9;
+            background-color: #45a049;
         }
 
-        .message {
+        .loading {
+            display: none;
             margin-top: 20px;
             font-weight: bold;
         }
-
     </style>
 </head>
 <body>
@@ -113,18 +146,85 @@
 
         <div class="main-content">
             <div class="upload-box">
-                <h1>Upload Utility Data</h1>
-                <form action="/upload" method="post" enctype="multipart/form-data">
-                    <input type="file" name="file" required>
-                    <br>
-                    <button type="submit">Upload and Analyze</button>
+                <img src="https://media.licdn.com/dms/image/v2/D5616AQExIVngy83gLw/profile-displaybackgroundimage-shrink_200_800/profile-displaybackgroundimage-shrink_200_800/0/1673389466923?e=2147483647&v=beta&t=-si9fjCEoCgy37gkPCl_gGVjvKft5oRfdtXZRMpwWvQ" alt="Conservice Logo">
+                <h1>Utility Data Analyzer</h1>
+                <p>This script processes utility billing data to find anomalies and generate a detailed report, helping to streamline your QA process.</p>
+                <form id="uploadForm">
+                    <div class="file-input-container">
+                        <label for="raw_data_file" class="file-input-label">Upload Raw Data</label>
+                        <input type="file" id="raw_data_file" name="raw_data_file" accept=".xlsx" required>
+                    </div>
+                    <div class="file-input-container">
+                        <label for="fp_file" class="file-input-label">Upload False Positives (If applicable)</label>
+                        <input type="file" id="fp_file" name="fp_file" accept=".txt">
+                    </div>
+                    <button type="submit">Run Analysis</button>
                 </form>
-
-                {% if message %}
-                    <div class="message">{{ message }}</div>
-                {% endif %}
+                <div class="loading" id="loadingMessage">
+                    Processing... Please wait.
+                </div>
             </div>
         </div>
     </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const rawDataInput = document.getElementById('raw_data_file');
+        const fpInput = document.getElementById('fp_file');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const file = rawDataInput.files[0];
+            if (!file) {
+                alert("Please select a file before uploading.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('raw_data_file', file);
+            const fpFile = fpInput.files[0];
+            if (fpFile) {
+                formData.append('fp_file', fpFile);
+            }
+
+            loadingMessage.style.display = 'block';
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const contentType = response.headers.get("Content-Type");
+                    if (contentType && contentType.includes("application/json")) {
+                        const error = await response.json();
+                        alert('Error: ' + error.error);
+                    } else {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = 'cleaned_data.xlsx';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    }
+                } else {
+                    const text = await response.text();
+                    console.error("Unexpected server response:\n", text);
+                    alert('An unexpected server error occurred. Check console for details.');
+                }
+            } catch (error) {
+                console.error('An unexpected error occurred:', error);
+                alert('An unexpected error occurred. Please check the console for details.');
+            } finally {
+                loadingMessage.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>
