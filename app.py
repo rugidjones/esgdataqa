@@ -58,6 +58,16 @@ def analyze_data_core(df, fp_list):
     containing the multi-tabbed Excel file.
     """
     try:
+        # --- NEW: Check if the input is a DataFrame or a BytesIO stream ---
+        if not isinstance(df, pd.DataFrame):
+            # If it's a stream, it's the raw Excel file, so load it
+            excel_file = pd.ExcelFile(df, engine='openpyxl')
+            sheet_names = [name for name in excel_file.sheet_names if "raw_data_table" in name.lower()]
+            if not sheet_names:
+                raise ValueError("No sheet named 'Raw_Data_Table' found.")
+            df = pd.read_excel(excel_file, sheet_name=sheet_names[0])
+        # --- END NEW ---
+
         print("Starting data analysis...")
         
         # -------------------- Your original logic starts here --------------------
@@ -134,7 +144,6 @@ def analyze_data_core(df, fp_list):
             df['Duplicate'] = df_clean.duplicated(subset=actual_duplicate_subset, keep=False)
         else:
             df['Duplicate'] = False
-            print("Warning: No valid columns found for duplicate detection. 'Duplicate' column set to False for all rows.")
 
         usage_mean = df['Usage'].dropna().mean(); usage_std = df['Usage'].dropna().std()
         df['Usage Z Score'] = (df['Usage'] - usage_mean) / usage_std if usage_std != 0 else np.nan
