@@ -152,7 +152,6 @@
                 });
 
                 if (response.ok) {
-                    // Check if the response is JSON (for errors) or a Blob (for the file)
                     const contentType = response.headers.get("Content-Type");
                     if (contentType && contentType.includes("application/json")) {
                         const error = await response.json();
