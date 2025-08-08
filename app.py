@@ -52,7 +52,7 @@ def get_false_positive_list(fp_file):
         logging.error(f"Error reading false positive file: {e}")
         return []
 
-def analyze_data_and_generate_report(df, fp_list):
+def analyze_data_core(df, fp_list):
     """
     Performs the core data analysis logic and returns a BytesIO object
     containing the multi-tabbed Excel file.
@@ -134,6 +134,7 @@ def analyze_data_and_generate_report(df, fp_list):
             df['Duplicate'] = df_clean.duplicated(subset=actual_duplicate_subset, keep=False)
         else:
             df['Duplicate'] = False
+            print("Warning: No valid columns found for duplicate detection. 'Duplicate' column set to False for all rows.")
 
         usage_mean = df['Usage'].dropna().mean(); usage_std = df['Usage'].dropna().std()
         df['Usage Z Score'] = (df['Usage'] - usage_mean) / usage_std if usage_std != 0 else np.nan
