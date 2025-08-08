@@ -11,7 +11,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             color: #333;
         }
@@ -123,6 +123,7 @@
                 <li><strong>Rate Anomalies:</strong> Bills with an extreme outlier for the calculated Rate (Cost/Usage).</li>
                 <li><strong>Negative Usage Records:</strong> Bills with negative Usage values.</li>
                 <li><strong>Zero Cost Positive Usage:</strong> Bills with a zero Cost but positive Usage.</li>
+                <li><strong>Bills After Sale Date:</strong> Bills with an End Date after the property's Sold date.</li>
                 <li><strong>Duplicate Records:</strong> Rows that are exact duplicates based on key bill details.</li>
                 <li><strong>Gap Records:</strong> Bills with a gap in their date history.</li>
                 <li><strong>HCF Mismatch:</strong> Bills with a discrepancy between HCF and Usage.</li>
