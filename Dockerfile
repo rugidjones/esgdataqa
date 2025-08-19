@@ -2,16 +2,19 @@
 FROM python:3.11-slim
 
 # Set the working directory in the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy the current directory contents into the container at /usr/src/app
-COPY . .
+# Copy the requirements file into the container at /app
+COPY requirements.txt ./
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port the app runs on
-EXPOSE 8000
+# Copy the rest of the application code into the container at /app
+COPY . .
 
-# Define the command to run the app
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "app:app"]
+# Expose the port that Streamlit runs on
+EXPOSE 8501
+
+# Run the app.py file using Streamlit
+CMD ["streamlit", "run", "app.py"]
