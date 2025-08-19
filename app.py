@@ -339,7 +339,7 @@ def analyze_data(file_path, client_name, fp_file):
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
             'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF', 'Cost_color',
-            'Meter_First_Seen'
+            'Meter_First_Seen', 'Year_First_Seen'
         ]
 
         master_column_order = core_identifying_columns + primary_flags + calculated_statistical_columns
