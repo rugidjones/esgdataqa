@@ -1,5 +1,6 @@
-Flask
+streamlit
 pandas
 xlsxwriter
+matplotlib
+seaborn
 openpyxl
-gunicorn
