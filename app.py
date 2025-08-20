@@ -216,7 +216,7 @@ def analyze_data(file_path, client_name, fp_file):
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
         core_identifying_columns = [
-            'Property Name', 'Location Bill Id', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
+            'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
             'Usage', 'Cost', 'Document', 'Rate'
         ]
