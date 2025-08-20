@@ -234,7 +234,7 @@ def analyze_data(file_path, client_name, fp_file):
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
-            'Usage', 'Cost', 'Document'
+            'Usage', 'Cost', 'Service Address', 'Document'
         ]
         
         # Moved columns
