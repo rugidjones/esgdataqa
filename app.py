@@ -176,56 +176,21 @@ def analyze_data(file_path, client_name, fp_file):
                     df.loc[meter_data.index[i-1:i+1], 'Gap'] = True
                     df.loc[meter_data.index[i], 'Gap_Dates'] = f"{previous_end.date()} to {current_start.date()}"
 
-        inactive_cutoff_date = pd.Timestamp(datetime.today() - timedelta(days=60))
-        last_dates = df.groupby('Meter Number')['End Date'].max()
-        inactive_meters = last_dates[last_dates < inactive_cutoff_date].index
-        df['Meter_Inactive'] = df['Meter Number'].isin(inactive_meters)
+        df['Is_Anomaly'] = (df['Usage Z Score'].abs() > 3.0) | \
+                             (df['Cost Z Score'].abs() > 3.0) | \
+                             (df['Usage'] == 0)
 
-        no_recent_data_cutoff = pd.Timestamp(datetime.today() - timedelta(days=90))
-        latest_end_dates_per_meter = df.groupby('Meter Number')['End Date'].max()
-        stale_data_meters = latest_end_dates_per_meter[latest_end_dates_per_meter < no_recent_data_cutoff].index
-        df['No_Recent_Data_Flag'] = df['Meter Number'].isin(stale_data_meters)
+        df['Consecutive_Anomalies_Count'] = df.groupby('Meter Number')['Is_Anomaly'].transform(
+            lambda x: x.mask(~x).groupby((x != x.shift()).cumsum()).cumcount() + 1
+        ).fillna(0).astype(int)
 
-        if 'Gross Square Footage' in df.columns:
-            df['Cost_per_SF'] = df['Cost'] / df['Gross Square Footage']
-            df['Usage_per_SF'] = df['Usage'] / df['Gross Square Footage']
-            df['Gross Square Footage'] = pd.to_numeric(df['Gross Square Footage'], errors='coerce').replace(0, np.nan)
+        df['Consistently_Anomalous_Meter'] = df['Consecutive_Anomalies_Count'] >= 2
 
-            cost_sf_mean, cost_sf_std = df['Cost_per_SF'].dropna().mean(), df['Cost_per_SF'].dropna().std()
-            df['Cost_per_SF_zscore'] = (df['Cost_per_SF'] - cost_sf_mean) / cost_sf_std if cost_sf_std != 0 else np.nan
-            usage_sf_mean, usage_sf_std = df['Usage_per_SF'].dropna().mean(), df['Usage_per_SF'].dropna().std()
-            df['Usage_per_SF_zscore'] = (df['Usage_per_SF'] - usage_sf_mean) / usage_sf_std if usage_sf_std != 0 else np.nan
+        df.drop(columns=['Is_Anomaly'], errors='ignore', inplace=True)
 
-            df['Inspect_Cost_per_SF'] = ''
-            df.loc[df['Cost_per_SF_zscore'].abs() > 3.0, 'Inspect_Cost_per_SF'] = 'red'
-            df['Inspect_Usage_per_SF'] = ''
-            df.loc[df['Usage_per_SF_zscore'].abs() > 3.0, 'Inspect_Usage_per_SF'] = 'red'
-        else:
-            df['Cost_per_SF'] = np.nan
-            df['Usage_per_SF'] = np.nan
-            df['Cost_per_SF_zscore'] = np.nan
-            df['Usage_per_SF_zscore'] = np.nan
-            df['Inspect_Cost_per_SF'] = ''
-            df['Inspect_Usage_per_SF'] = ''
+        df['Negative_Usage'] = df['Usage'] < 0
 
-        df = df.replace([np.inf, -np.inf], np.nan)
-
-        df['Rate'] = df['Cost'] / df['Usage']
-        df['Rate'] = df['Rate'].replace([np.inf, -np.inf], np.nan)
-
-        rate_mean = df['Rate'].dropna().mean()
-        rate_std = df['Rate'].dropna().std()
-        df['Rate Z Score'] = (df['Rate'] - rate_mean) / rate_std if rate_std != 0 else np.nan
-
-        df['Inspect_Rate'] = ''
-        df.loc[df['Rate Z Score'].abs() > 3.0, 'Inspect_Rate'] = 'red'
-
-        if 'Created Date' in df.columns and 'Last Modified Date' in df.columns:
-            df['Recent_Modification'] = (df['Created Date'] == df['Last Modified Date'])
-        else:
-            df['Recent_Modification'] = False
-
-        df['Zero_Usage_Positive_Cost'] = (df['Usage'] == 0) & (df['Cost'] > 0)
+        df['Use_Zero_Cost_NonZero'] = (df['Usage'] == 0) & (df['Cost'] != 0)
 
         if 'HCF' in df.columns and df['HCF'].notna().any():
             df['HCF'] = pd.to_numeric(df['HCF'], errors='coerce')
@@ -248,22 +213,6 @@ def analyze_data(file_path, client_name, fp_file):
                     idxs = [meter_data.loc[i - 1, 'index'], meter_data.loc[i, 'index'], meter_data.loc[i + 1, 'index']]
                     df.loc[idxs, 'Zero_Between_Positive'] = True
 
-        df['Is_Anomaly'] = (df['Usage Z Score'].abs() > 3.0) | \
-                             (df['Cost Z Score'].abs() > 3.0) | \
-                             (df['Usage'] == 0)
-
-        df['Consecutive_Anomalies_Count'] = df.groupby('Meter Number')['Is_Anomaly'].transform(
-            lambda x: x.mask(~x).groupby((x != x.shift()).cumsum()).cumcount() + 1
-        ).fillna(0).astype(int)
-
-        df['Consistently_Anomalous_Meter'] = df['Consecutive_Anomalies_Count'] >= 2
-
-        df.drop(columns=['Is_Anomaly'], errors='ignore', inplace=True)
-
-        df['Negative_Usage'] = df['Usage'] < 0
-
-        df['Use_Zero_Cost_NonZero'] = (df['Usage'] == 0) & (df['Cost'] != 0)
-
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
@@ -280,7 +229,7 @@ def analyze_data(file_path, client_name, fp_file):
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
-            'Meter_Inactive', 'No_Recent_Data_Flag', 'HCF_Conversion_Match',
+            'HCF_Conversion_Match',
             'is_false_positive', 'Use_color', 'Zero_Between_Positive'
         ]
 
@@ -314,7 +263,6 @@ def analyze_data(file_path, client_name, fp_file):
                 'Rate Anomalies': df[(df['Inspect_Rate'] == 'red') & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
-                'No Recent Data Meters': df[(df['No_Recent_Data_Flag'] == True) & (df['is_false_positive'] == False)].copy(),
                 'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True) & (df['is_false_positive'] == False)].copy(),
                 'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna()) & (df['is_false_positive'] == False)].copy(),
                 'Duplicate Records': df[(df['Duplicate'] == True) & (df['is_false_positive'] == False)].copy(),
@@ -362,7 +310,6 @@ def generate_summary_plots(df):
         'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
         'HCF Mismatch': hcf_mismatch_count,
-        'No Recent Data': df_filtered['No_Recent_Data_Flag'].sum(),
     }
 
     issues_df = pd.DataFrame(issue_counts.items(), columns=['Issue', 'Count'])
