@@ -25,7 +25,7 @@ current_client_name = st.text_input("Please enter the client name:", value="Clie
 
 # File upload widgets
 uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xlsx"])
-uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=["txt"])
+uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt (or click 'Cancel' if not applicable)", type=["txt"])
  
 # --- CORE LOGIC FUNCTIONS ---
 
@@ -367,7 +367,6 @@ def analyze_data(file_path, client_name, fp_file):
                 'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna()) & (df['is_false_positive'] == False)].copy(),
                 'Duplicate Records': df[(df['Duplicate'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Gap Records': df[(df['Gap'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Contextual Anomalies': df[(df['Anomaly_Reason'] != '') & (df['is_false_positive'] == False)].copy(),
                 'New Meters Summary': new_meters_per_property.copy()
             }
             
