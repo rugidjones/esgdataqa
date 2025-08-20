@@ -18,7 +18,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 # --- UI LAYOUT ---
 # Add the company logo at the top of the page
-# st.image("conservice_logo.png", width=400)
 st.title("Utility Bill Data Quality Analyzer")
 st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
@@ -47,40 +46,6 @@ def get_false_positive_list(client_name, fp_file):
     else:
         st.warning(f"No false positive file found for '{client_name}'. No filters will be applied.")
         return []
-
-def add_contextual_notes(df):
-    """
-    Adds a new column with notes to explain the likely reason for an anomaly.
-    This function helps in preliminary root cause analysis.
-    """
-    st.info("Adding contextual notes for flagged anomalies...")
-    df['Anomaly_Reason'] = ''
-    
-    # Condition 1: High value anomaly + Meter is new to the dataset
-    new_meter_mask = (df['Meter_First_Seen'] == df['Start Date'])
-    new_meter_anomaly_mask = new_meter_mask & ((df['Usage Z Score'].abs() > 3.0) | (df['Cost Z Score'].abs() > 3.0))
-    df.loc[new_meter_anomaly_mask, 'Anomaly_Reason'] = 'Possible new meter or increased use due to new unit.'
-    
-    # Condition 2: Bills after the sold date
-    # Removed logic for this feature
-    # df.loc[df['Bill_After_Sold_Date'] == True, 'Anomaly_Reason'] = 'Possible Final Bill (After Property Sold)'
-
-    # Condition 3: Missing HCF conversion
-    if 'HCF' in df.columns:
-        hcf_mismatch_mask = (df['HCF_Conversion_Match'] == False) & df['HCF'].notna()
-        df.loc[hcf_mismatch_mask, 'Anomaly_Reason'] = 'Possible Unit Conversion Error (HCF Mismatch)'
-    
-    # Condition 4: Zero usage between two positive values
-    df.loc[df['Zero_Between_Positive'] == True, 'Anomaly_Reason'] = 'Zero Usage Between Positive Values (Possible Estimated Bill)'
-    
-    # Condition 5: Consistently anomalous meter (flagged previously)
-    df.loc[df['Consistently_Anomalous_Meter'] == True, 'Anomaly_Reason'] = 'Consistently Anomalous Meter (Check for long-term issue)'
-
-    # General High Value Anomaly (for existing meters, if no other reason is found)
-    high_value_mask = (df['Usage Z Score'].abs() > 3.0) | (df['Cost Z Score'].abs() > 3.0)
-    df.loc[high_value_mask & (df['Anomaly_Reason'] == ''), 'Anomaly_Reason'] = 'Significant usage spike (compare to historical data).'
-
-    return df
 
 def analyze_data(file_path, client_name, fp_file):
     """
@@ -143,19 +108,6 @@ def analyze_data(file_path, client_name, fp_file):
             df['Last Modified Date'] = pd.to_datetime(df['Last Modified Date'])
         else:
             df['Last Modified Date'] = pd.NaT
-
-        # --- DELETED: Sold column and Bills After Sale Date check ---
-        # if 'Sold' in df.columns:
-        #     df['Sold'] = pd.to_datetime(df['Sold'], errors='coerce')
-        # else:
-        #     df['Sold'] = pd.NaT
-        #     st.warning("'Sold' column not found in source file. Skipping 'Bills After Sale Date' check.")
-        
-        # df['Bill_After_Sold_Date'] = False
-        # if 'Sold' in df.columns and not df['Sold'].isnull().all():
-        #     valid_dates_mask = df['End Date'].notna() & df['Sold'].notna()
-        #     df.loc[valid_dates_mask, 'Bill_After_Sold_Date'] = df.loc[valid_dates_mask, 'End Date'] > df.loc[valid_dates_mask, 'Sold']
-        # --- END DELETED ---
 
         df['Usage'] = pd.to_numeric(df['Usage'], errors='coerce')
         df['Cost'] = pd.to_numeric(df['Cost'], errors='coerce')
