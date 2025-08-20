@@ -17,7 +17,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 
 # --- UI LAYOUT ---
-# Add the company logo at the top of the page
 st.title("Utility Bill Data Quality Analyzer")
 st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
@@ -217,9 +216,9 @@ def analyze_data(file_path, client_name, fp_file):
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
         core_identifying_columns = [
-            'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
+            'Property Name', 'Location Bill Id', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
-            'Usage', 'Cost', 'Service Address', 'Document'
+            'Usage', 'Cost', 'Document', 'Rate'
         ]
 
         primary_flags = [
@@ -234,9 +233,9 @@ def analyze_data(file_path, client_name, fp_file):
         ]
 
         calculated_statistical_columns = [
-            'Rate', 'Billing_Period_Days',
+            'Rate Z Score',
             'Usage MEAN', 'Usage Standard',
-            'Usage Z Score', 'Rate Z Score',
+            'Usage Z Score', 
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date', 'Area Covered',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
@@ -258,9 +257,8 @@ def analyze_data(file_path, client_name, fp_file):
             
             # Exporting other specific anomaly tabs (now all filter out false positives)
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == 'red')) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == 'red') | (df['Inspect_Rate'] == 'red')) & (df['is_false_positive'] == False)].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Rate Anomalies': df[(df['Inspect_Rate'] == 'red') & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
                 'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True) & (df['is_false_positive'] == False)].copy(),
