@@ -77,7 +77,8 @@ def analyze_data(file_path, client_name, fp_file):
             'End Date': 'End Date',
             'Use': 'Usage',
             'Cost': 'Cost',
-            'Documentation': 'Document'
+            'Documentation': 'Document',
+            'Service Address': 'Service Address'
         }
         df.rename(columns=column_mapping, inplace=True)
 
@@ -256,7 +257,7 @@ def analyze_data(file_path, client_name, fp_file):
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date', 'Area Covered',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF', 'Cost_color',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score',
             'Meter_First_Seen'
         ]
 
@@ -265,7 +266,7 @@ def analyze_data(file_path, client_name, fp_file):
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
         
         # Remove unwanted columns
-        df.drop(columns=['Use_color', 'Cost_color', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF'], errors='ignore', inplace=True)
+        df.drop(columns=['Use_color', 'Cost_color'], errors='ignore', inplace=True)
         
 
         st.success("Analysis complete! Generating report...")
