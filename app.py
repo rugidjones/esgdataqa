@@ -18,8 +18,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 # --- UI LAYOUT ---
 # Add the company logo at the top of the page
-st.image("conservice_logo.png", width=400)
-st.title("Utility Bill Data Quality Analyzer")
+st.image("conservice_logo.png", width=600)
+st.title("Utility Bill Data Analyzer")
 st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
 # Get client name dynamically
@@ -27,7 +27,7 @@ current_client_name = st.text_input("Please enter the client name:", value="Clie
 
 # File upload widgets
 uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xlsx"])
-uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt (or click 'Cancel' if not applicable)", type=["txt"])
+uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt (or click 'Run Analysis' if not applicable)", type=["txt"])
  
 # --- CORE LOGIC FUNCTIONS ---
 
