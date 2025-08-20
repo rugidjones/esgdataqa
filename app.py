@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 # --- UI LAYOUT ---
 # Add the company logo at the top of the page
-st.image("conservice_logo.png", width=600)
+st.image("conservice_logo.png", width=400)
 st.title("Utility Bill Data Analyzer")
 st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
