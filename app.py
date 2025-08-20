@@ -237,11 +237,20 @@ def analyze_data(file_path, client_name, fp_file):
             'Usage', 'Cost', 'Document'
         ]
         
-        # New order to move Rate-related columns
+        # Moved columns
+        moved_columns = [
+            'Usage Z Score',
+            'Usage_per_SF_zscore',
+            'Usage_per_SF',
+            'Gap_Dates',
+            'Last Modified Date'
+        ]
+
+        # New order for rate columns
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
-            'Duplicate', 'Gap', 'Gap_Dates',
+            'Duplicate', 'Gap',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
             'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
@@ -253,22 +262,16 @@ def analyze_data(file_path, client_name, fp_file):
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Usage Z Score', 
-            'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date', 'Area Covered',
-            'Usage_per_SF', 'Usage_per_SF_zscore',
-            'HCF', 'HCF_to_Gallons',
             'Cost Mean', 'Cost Standard', 'Cost Z Score',
+            'Gross Square Footage', 'Common Area SF', 'Created Date', 'Area Covered',
+            'HCF', 'HCF_to_Gallons',
             'Meter_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
+        master_column_order = core_identifying_columns + rate_columns + moved_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
         
-        # Remove unwanted columns
-        df.drop(columns=['Use_color', 'Cost_color'], errors='ignore', inplace=True)
-        
-
         st.success("Analysis complete! Generating report...")
         
         # In-memory Excel file
@@ -279,7 +282,7 @@ def analyze_data(file_path, client_name, fp_file):
             
             # Exporting other specific anomaly tabs (now all filter out false positives)
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == 'red') | (df['Inspect_Rate'] == 'red')) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True)) & (df['is_false_positive'] == False)].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
@@ -324,8 +327,8 @@ def generate_summary_plots(df):
         'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum(),
         'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
         'High Value Anomalies': (df_filtered['Usage Z Score'].abs() > 3.0).sum() +
-                                 (df_filtered['Inspect_Usage_per_SF'] == 'red').sum() +
-                                 (df_filtered['Inspect_Rate'] == 'red').sum(),
+                                 (df_filtered['Inspect_Usage_per_SF'] == True).sum() +
+                                 (df_filtered['Inspect_Rate'] == True).sum(),
         'Negative Usage': df_filtered['Negative_Usage'].sum(),
         'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
