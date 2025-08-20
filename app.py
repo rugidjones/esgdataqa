@@ -154,15 +154,7 @@ def analyze_data(file_path, client_name, fp_file):
         df['Usage Standard'] = usage_std
         df['Cost Mean'] = cost_mean
         df['Cost Standard'] = cost_std
-
-        df['Use_color'] = ''
-        df.loc[df['Usage Z Score'].abs() > 3.0, 'Use_color'] = 'red'
-        df.loc[(df['Usage Z Score'] < 0) & (df['Usage Z Score'].abs() <= 3.0), 'Use_color'] = 'yellow'
-
-        df['Cost_color'] = ''
-        df.loc[df['Cost Z Score'].abs() > 3.0, 'Cost_color'] = 'red'
-        df.loc[(df['Cost Z Score'] < 0) & (df['Cost Z Score'].abs() <= 3.0), 'Cost_color'] = 'yellow'
-
+        
         df['Gap'] = False
         df['Gap_Dates'] = ''
 
@@ -212,6 +204,28 @@ def analyze_data(file_path, client_name, fp_file):
                 if prev_use > 0 and curr_use == 0 and next_use > 0 and curr_start > prev_end:
                     idxs = [meter_data.loc[i - 1, 'index'], meter_data.loc[i, 'index'], meter_data.loc[i + 1, 'index']]
                     df.loc[idxs, 'Zero_Between_Positive'] = True
+        
+        # --- NEW Z-SCORE CALCULATIONS ---
+        # Calculate Rate and Rate Z Score
+        df['Rate'] = df['Cost'] / df['Usage']
+        df['Rate'] = df['Rate'].replace([np.inf, -np.inf], np.nan)
+        rate_mean = df['Rate'].dropna().mean()
+        rate_std = df['Rate'].dropna().std()
+        df['Rate Z Score'] = (df['Rate'] - rate_mean) / rate_std if rate_std != 0 else np.nan
+
+        # Calculate Usage per SF and its Z Score
+        if 'Gross Square Footage' in df.columns:
+            df['Usage_per_SF'] = df['Usage'] / df['Gross Square Footage']
+            usage_sf_mean, usage_sf_std = df['Usage_per_SF'].dropna().mean(), df['Usage_per_SF'].dropna().std()
+            df['Usage_per_SF_zscore'] = (df['Usage_per_SF'] - usage_sf_mean) / usage_sf_std if usage_sf_std != 0 else np.nan
+        else:
+            df['Usage_per_SF'] = np.nan
+            df['Usage_per_SF_zscore'] = np.nan
+
+        # Flag anomalies based on the calculated Z-scores
+        df['Inspect_Usage_per_SF'] = df['Usage_per_SF_zscore'].abs() > 3.0
+        df['Inspect_Rate'] = df['Rate Z Score'].abs() > 3.0
+
 
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
@@ -242,7 +256,7 @@ def analyze_data(file_path, client_name, fp_file):
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date', 'Area Covered',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF', 'Cost_color',
             'Meter_First_Seen'
         ]
 
