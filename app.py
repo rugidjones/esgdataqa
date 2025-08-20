@@ -17,6 +17,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 
 # --- UI LAYOUT ---
+# Add the company logo at the top of the page
+st.image("https://images.unsplash.com/photo-1627958998495-2c8c4a4f8d2b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80", width=200)
 st.title("Utility Bill Data Quality Analyzer")
 st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
