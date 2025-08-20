@@ -18,8 +18,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 # --- UI LAYOUT ---
 # Add the company logo at the top of the page
-st.image("conservice_logo.png", width=400)
-st.title("Utility Bill Data Analyzer")
+# st.image("conservice_logo.png", width=400)
+st.title("Utility Bill Data Quality Analyzer")
 st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
 # Get client name dynamically
@@ -27,7 +27,7 @@ current_client_name = st.text_input("Please enter the client name:", value="Clie
 
 # File upload widgets
 uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xlsx"])
-uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt (or click 'Run Analysis' if not applicable)", type=["txt"])
+uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt (or click 'Cancel' if not applicable)", type=["txt"])
  
 # --- CORE LOGIC FUNCTIONS ---
 
@@ -48,38 +48,6 @@ def get_false_positive_list(client_name, fp_file):
         st.warning(f"No false positive file found for '{client_name}'. No filters will be applied.")
         return []
 
-def add_contextual_notes(df):
-    """
-    Adds a new column with notes to explain the likely reason for an anomaly.
-    This function helps in preliminary root cause analysis.
-    """
-    st.info("Adding contextual notes for flagged anomalies...")
-    df['Anomaly_Reason'] = ''
-    
-    # Condition 1: High value anomaly + Meter is new to the dataset
-    new_meter_mask = (df['Meter_First_Seen'] == df['Start Date'])
-    new_meter_anomaly_mask = new_meter_mask & ((df['Usage Z Score'].abs() > 3.0) | (df['Cost Z Score'].abs() > 3.0))
-    df.loc[new_meter_anomaly_mask, 'Anomaly_Reason'] = 'Possible new meter or increased use due to new unit.'
-    
-    # Condition 2: Bills after the sold date
-    df.loc[df['Bill_After_Sold_Date'] == True, 'Anomaly_Reason'] = 'Possible Final Bill (After Property Sold)'
-
-    # Condition 3: Missing HCF conversion
-    if 'HCF' in df.columns:
-        hcf_mismatch_mask = (df['HCF_Conversion_Match'] == False) & df['HCF'].notna()
-        df.loc[hcf_mismatch_mask, 'Anomaly_Reason'] = 'Possible Unit Conversion Error (HCF Mismatch)'
-    
-    # Condition 4: Zero usage between two positive values
-    df.loc[df['Zero_Between_Positive'] == True, 'Anomaly_Reason'] = 'Zero Usage Between Positive Values (Possible Estimated Bill)'
-    
-    # Condition 5: Consistently anomalous meter (flagged previously)
-    df.loc[df['Consistently_Anomalous_Meter'] == True, 'Anomaly_Reason'] = 'Consistently Anomalous Meter (Check for long-term issue)'
-
-    # General High Value Anomaly (for existing meters, if no other reason is found)
-    high_value_mask = (df['Usage Z Score'].abs() > 3.0) | (df['Cost Z Score'].abs() > 3.0)
-    df.loc[high_value_mask & (df['Anomaly_Reason'] == ''), 'Anomaly_Reason'] = 'Significant usage spike (compare to historical data).'
-
-    return df
 
 def analyze_data(file_path, client_name, fp_file):
     """
@@ -154,9 +122,6 @@ def analyze_data(file_path, client_name, fp_file):
         df = df.dropna(subset=['Usage', 'Cost'])
 
         df = df.sort_values(by=['Meter Number', 'Start Date'])
-        
-        df['Meter_First_Seen'] = df.groupby('Meter Number')['Start Date'].transform('min')
-        df['Year_First_Seen'] = df['Meter_First_Seen'].dt.year
         
         def clean_text(val):
             if pd.isna(val): return 'MISSING_VALUE_FOR_DUPLICATE_CHECK'
@@ -312,10 +277,6 @@ def analyze_data(file_path, client_name, fp_file):
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
-        df = add_contextual_notes(df)
-        
-        new_meters_per_property = df[df['Meter_First_Seen'] == df['Start Date']].groupby(['Property Name', 'Year_First_Seen']).size().reset_index(name='New Meters Count')
-        
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
@@ -330,7 +291,7 @@ def analyze_data(file_path, client_name, fp_file):
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'Bill_After_Sold_Date', 'New_Bill_Usage_Anomaly',
             'Meter_Inactive', 'No_Recent_Data_Flag', 'HCF_Conversion_Match',
-            'is_false_positive', 'Use_color', 'Zero_Between_Positive', 'Anomaly_Reason'
+            'is_false_positive', 'Use_color', 'Zero_Between_Positive'
         ]
 
         calculated_statistical_columns = [
@@ -341,7 +302,7 @@ def analyze_data(file_path, client_name, fp_file):
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
             'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF', 'Cost_color',
-            'Meter_First_Seen', 'Year_First_Seen'
+            'Meter_First_Seen'
         ]
 
         master_column_order = core_identifying_columns + primary_flags + calculated_statistical_columns
@@ -369,7 +330,6 @@ def analyze_data(file_path, client_name, fp_file):
                 'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna()) & (df['is_false_positive'] == False)].copy(),
                 'Duplicate Records': df[(df['Duplicate'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Gap Records': df[(df['Gap'] == True) & (df['is_false_positive'] == False)].copy(),
-                'New Meters Summary': new_meters_per_property.copy()
             }
             
             for tab_name, tab_df in specific_anomaly_tabs.items():
@@ -415,7 +375,6 @@ def generate_summary_plots(df):
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
         'HCF Mismatch': hcf_mismatch_count,
         'No Recent Data': df_filtered['No_Recent_Data_Flag'].sum(),
-        'Contextual Anomalies': (df_filtered['Anomaly_Reason'] != '').sum(),
     }
 
     issues_df = pd.DataFrame(issue_counts.items(), columns=['Issue', 'Count'])
