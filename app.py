@@ -219,34 +219,40 @@ def analyze_data(file_path, client_name, fp_file):
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
-            'Usage', 'Cost', 'Document', 'Rate'
+            'Usage', 'Cost', 'Document'
         ]
-
+        
+        # New order to move Rate-related columns
+        rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
+        
         primary_flags = [
             'Duplicate', 'Gap', 'Gap_Dates',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
-            'Inspect_Usage_per_SF', 'Inspect_Rate',
+            'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
             'HCF_Conversion_Match',
-            'is_false_positive', 'Use_color', 'Zero_Between_Positive'
+            'is_false_positive', 'Zero_Between_Positive'
         ]
 
         calculated_statistical_columns = [
-            'Rate Z Score',
             'Usage MEAN', 'Usage Standard',
             'Usage Z Score', 
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date', 'Area Covered',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF', 'Cost_color',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + primary_flags + calculated_statistical_columns
+        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
+        
+        # Remove unwanted columns
+        df.drop(columns=['Use_color', 'Cost_color', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF'], errors='ignore', inplace=True)
+        
 
         st.success("Analysis complete! Generating report...")
         
@@ -303,8 +309,8 @@ def generate_summary_plots(df):
         'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum(),
         'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
         'High Value Anomalies': (df_filtered['Usage Z Score'].abs() > 3.0).sum() +
-                                 (df_filtered['Inspect_Usage_per_SF'] == 'red').sum(),
-        'Rate Anomalies': (df_filtered['Inspect_Rate'] == 'red').sum(),
+                                 (df_filtered['Inspect_Usage_per_SF'] == 'red').sum() +
+                                 (df_filtered['Inspect_Rate'] == 'red').sum(),
         'Negative Usage': df_filtered['Negative_Usage'].sum(),
         'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
