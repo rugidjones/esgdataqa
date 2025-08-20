@@ -166,6 +166,7 @@ def analyze_data(file_path, client_name, fp_file):
         df['Gap'] = False
         df['Gap_Dates'] = ''
 
+        date_format = '%#m/%#d/%Y' if os.name == 'nt' else '%-m/%-d/%Y'
         for meter_number in df['Meter Number'].unique():
             meter_data = df[df['Meter Number'] == meter_number].sort_values('Start Date')
             for i in range(1, len(meter_data)):
@@ -173,7 +174,7 @@ def analyze_data(file_path, client_name, fp_file):
                 current_start = meter_data.iloc[i]['Start Date']
                 if current_start > previous_end + pd.Timedelta(days=1):
                     df.loc[meter_data.index[i-1:i+1], 'Gap'] = True
-                    df.loc[meter_data.index[i], 'Gap_Dates'] = f"{previous_end.date().strftime('%#m/%#d/%Y')} to {current_start.date().strftime('%#m/%#d/%Y')}"
+                    df.loc[meter_data.index[i], 'Gap_Dates'] = f"{previous_end.date().strftime(date_format)} to {current_start.date().strftime(date_format)}"
 
         df['Is_Anomaly'] = (df['Usage Z Score'].abs() > 3.0) | \
                              (df['Cost Z Score'].abs() > 3.0) | \
