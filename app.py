@@ -37,7 +37,7 @@ uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=[
 def get_false_positive_list(client_name, fp_file):
     return []
 
-def analyze_data(data_file, client_name, fp_file):
+def analyze_data(data_file, client_name):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -228,6 +228,12 @@ def analyze_data(data_file, client_name, fp_file):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
+        fp_list = get_false_positive_list(client_name, fp_file)
+        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
+
+        # Create a flag for High Value Anomalies
+        df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
+
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
@@ -237,23 +243,24 @@ def analyze_data(data_file, client_name, fp_file):
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
-            'Duplicate', 'Gap', 'Gap_Dates',
+            'Duplicate', 'Gap',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
             'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
             'HCF_Conversion_Match',
-            'is_false_positive', 'Zero_Between_Positive'
+            'is_false_positive', 'Zero_Between_Positive',
+            'Is_High_Value_Anomaly'
         ]
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Usage Z Score', 
+            'Cost Mean', 'Cost Standard', 'Cost Z Score',
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
+            'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen', 'Year_First_Seen'
         ]
 
@@ -268,7 +275,7 @@ def analyze_data(data_file, client_name, fp_file):
             df.to_excel(writer, sheet_name='Main Data', index=False)
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True)) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[df['Is_High_Value_Anomaly'] & (df['is_false_positive'] == False)].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
@@ -305,16 +312,14 @@ def generate_summary_plots(df):
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
     df_filtered = df[df['is_false_positive'] == False]
+    is_high_value_anomaly_count = df_filtered['Is_High_Value_Anomaly'].sum()
 
     issue_counts = {
         'Duplicates': df_filtered['Duplicate'].sum(),
         'Gaps': df_filtered['Gap'].sum(),
         'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum(),
         'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
-        'High Value Anomalies': (df_filtered['Usage Z Score'].abs() > 3.0).sum() +
-                                 (df_filtered['Inspect_Usage_per_SF'] == True).sum() +
-                                 (df_filtered['Inspect_Rate'] == True).sum() +
-                                 (df_filtered['Inspect_Cost_per_SF'] == True).sum(),
+        'High Value Anomalies': is_high_value_anomaly_count,
         'Negative Usage': df_filtered['Negative_Usage'].sum(),
         'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
