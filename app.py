@@ -37,7 +37,7 @@ uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=[
 def get_false_positive_list(client_name, fp_file):
     return []
 
-def analyze_data(data_file, client_name):
+def analyze_data(data_file, client_name, fp_file):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -330,7 +330,7 @@ def generate_summary_plots(df):
     issues_df = issues_df[issues_df['Count'] > 0].sort_values(by='Count', ascending=False)
 
     if issues_df.empty:
-        st.success("No major data quality issues were found! 🎉")
+        st.success("No major data quality issues were found! �")
     else:
         fig, ax = plt.subplots(figsize=(14, 7))
         sns.barplot(x='Count', y='Issue', hue='Issue', data=issues_df, palette='viridis', orient='h', legend=False, ax=ax)
@@ -355,3 +355,4 @@ if st.button('Run Analysis'):
             generate_summary_plots(df_processed)
     else:
         st.warning("Please upload a raw data file to begin the analysis.")
+�
