@@ -25,7 +25,7 @@ current_client_name = st.text_input("Please enter the client name:", value="Clie
 
 # File upload widgets
 uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xlsx"])
-uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt (or click 'Cancel' if not applicable)", type=["txt"])
+uploaded_fp_file = st.file_uploader("Upload false positives .txt (or click 'Cancel' if not applicable)", type=["txt"])
  
 # --- CORE LOGIC FUNCTIONS ---
 
