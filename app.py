@@ -29,7 +29,7 @@ uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xl
 # --- NEW: False Positive List section (visible but disabled) ---
 st.markdown("### False Positive List")
 st.markdown("This feature is coming soon! A list of known false positives will be automatically filtered from the reports.")
-st.file_uploader("Upload false_positives_CAPREIT.txt", type=["txt"], disabled=True)
+uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=["txt"], disabled=True)
 # --- END NEW ---
 
 # --- CORE LOGIC FUNCTIONS ---
@@ -257,10 +257,10 @@ def analyze_data(data_file, client_name, fp_file):
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
             'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
-            'Meter_First_Seen'
+            'Meter_First_Seen', 'Year_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
+        master_column_order = core_identifying_columns + rate_columns + moved_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
         
