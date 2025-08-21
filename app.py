@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-import io # To handle the uploaded file-like object
 
 # Suppress pandas RuntimeWarning for calculations with NaNs
 warnings.filterwarnings("ignore", "invalid value encountered in subtract", RuntimeWarning)
@@ -46,7 +45,7 @@ def get_false_positive_list(client_name, fp_file):
         st.warning(f"No false positive file found for '{client_name}'. No filters will be applied.")
         return []
 
-def analyze_data(file_path, client_name, fp_file):
+def analyze_data(data_file, client_name, fp_file):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -60,7 +59,7 @@ def analyze_data(file_path, client_name, fp_file):
     
     try:
         st.info("1. Reading source data...")
-        df = pd.read_excel(file_path, sheet_name='Raw_Data_Table_S2')
+        df = pd.read_excel(data_file, sheet_name='Raw_Data_Table_S2')
 
         st.info("2. Renaming columns and performing initial data cleaning...")
         column_mapping = {
