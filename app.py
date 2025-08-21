@@ -298,16 +298,39 @@ def analyze_data(data_file, client_name, fp_file):
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
+        # Call the AI to generate a summary for each flagged anomaly
+        df['AI_Summary'] = ''
+        with st.spinner("Generating AI Summaries... This may take a moment."):
+            # Filter for anomalies to analyze
+            anomaly_mask = (df['High Value Anomalies'] == True) | (df['Negative Usage'] == True) | (df['Duplicate'] == True)
+            
+            # Use iterrows only on the filtered DataFrame for efficiency
+            for index, row in df[anomaly_mask].iterrows():
+                summary = generate_ai_summary(row)
+                df.loc[index, 'AI_Summary'] = summary
+                # Add a small delay to avoid hitting API rate limits
+                time.sleep(1)
+
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
             'Usage', 'Cost', 'Service Address', 'Document'
         ]
         
+        # Moved columns
+        moved_columns = [
+            'Usage Z Score',
+            'Usage_per_SF_zscore',
+            'Usage_per_SF',
+            'Gap_Dates',
+            'Last Modified Date'
+        ]
+
+        # New order for rate columns
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
-            'Duplicate', 'Gap', 'Gap_Dates',
+            'Duplicate', 'Gap',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
             'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
@@ -319,15 +342,13 @@ def analyze_data(data_file, client_name, fp_file):
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Usage Z Score', 
-            'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
-            'Usage_per_SF', 'Usage_per_SF_zscore',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score',
+            'Gross Square Footage', 'Common Area SF', 'Created Date',
             'HCF', 'HCF_to_Gallons',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen', 'Year_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
+        master_column_order = core_identifying_columns + rate_columns + moved_columns + primary_flags + calculated_statistical_columns + ['AI_Summary']
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
         
