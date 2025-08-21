@@ -25,26 +25,17 @@ current_client_name = st.text_input("Please enter the client name:", value="Clie
 
 # File upload widgets
 uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xlsx"])
-uploaded_fp_file = st.file_uploader("Upload false positives .txt (or click 'Cancel' if not applicable)", type=["txt"])
  
-# --- CORE LOGIC FUNCTIONS ---
+# --- NEW: False Positive List section (visible but disabled) ---
+st.markdown("### False Positive List")
+st.markdown("This feature is coming soon! A list of known false positives will be automatically filtered from the reports.")
+st.file_uploader("Upload false_positives_CAPREIT.txt", type=["txt"], disabled=True)
+# --- END NEW ---
 
+# --- CORE LOGIC FUNCTIONS ---
+# This function is now empty as the feature has been temporarily disabled
 def get_false_positive_list(client_name, fp_file):
-    """
-    Reads the false positive list from a text file for a given client.
-    This function is designed to work within a Streamlit app.
-    """
-    if fp_file is not None:
-        try:
-            fp_list = [int(line.decode('utf-8').strip()) for line in fp_file if line.strip()]
-            st.info(f"Loaded {len(fp_list)} false positives for '{client_name}'.")
-            return fp_list
-        except Exception as e:
-            st.warning(f"Error loading false positive file: {e}. No filters will be applied.")
-            return []
-    else:
-        st.warning(f"No false positive file found for '{client_name}'. No filters will be applied.")
-        return []
+    return []
 
 def analyze_data(data_file, client_name, fp_file):
     """
@@ -99,13 +90,13 @@ def analyze_data(data_file, client_name, fp_file):
             if col not in df.columns:
                 st.warning(f"'{col}' column not found in source file.")
 
-        df['Start Date'] = pd.to_datetime(df['Start Date'])
-        df['End Date'] = pd.to_datetime(df['End Date'])
+        df['Start Date'] = pd.to_datetime(df['Start Date']).dt.date
+        df['End Date'] = pd.to_datetime(df['End Date']).dt.date
 
         if 'Created Date' in df.columns:
-            df['Created Date'] = pd.to_datetime(df['Created Date'])
+            df['Created Date'] = pd.to_datetime(df['Created Date']).dt.date
         if 'Last Modified Date' in df.columns:
-            df['Last Modified Date'] = pd.to_datetime(df['Last Modified Date'])
+            df['Last Modified Date'] = pd.to_datetime(df['Last Modified Date']).dt.date
         else:
             df['Last Modified Date'] = pd.NaT
 
@@ -116,7 +107,7 @@ def analyze_data(data_file, client_name, fp_file):
         df = df.sort_values(by=['Meter Number', 'Start Date'])
         
         df['Meter_First_Seen'] = df.groupby('Meter Number')['Start Date'].transform('min')
-        df['Year_First_Seen'] = df['Meter_First_Seen'].dt.year
+        df['Year_First_Seen'] = df['Meter_First_Seen'].astype(str).str[:4]
         
         def clean_text(val):
             if pd.isna(val): return 'MISSING_VALUE_FOR_DUPLICATE_CHECK'
@@ -167,7 +158,7 @@ def analyze_data(data_file, client_name, fp_file):
                 current_start = meter_data.iloc[i]['Start Date']
                 if current_start > previous_end + pd.Timedelta(days=1):
                     df.loc[meter_data.index[i-1:i+1], 'Gap'] = True
-                    df.loc[meter_data.index[i], 'Gap_Dates'] = f"{previous_end.date().strftime(date_format)} to {current_start.date().strftime(date_format)}"
+                    df.loc[meter_data.index[i], 'Gap_Dates'] = f"{previous_end.strftime(date_format)} to {current_start.strftime(date_format)}"
 
         df['Is_Anomaly'] = (df['Usage Z Score'].abs() > 3.0) | \
                              (df['Cost Z Score'].abs() > 3.0) | \
@@ -226,7 +217,16 @@ def analyze_data(data_file, client_name, fp_file):
         # Flag anomalies based on the calculated Z-scores
         df['Inspect_Usage_per_SF'] = df['Usage_per_SF_zscore'].abs() > 3.0
         df['Inspect_Rate'] = df['Rate Z Score'].abs() > 3.0
-
+        
+        # Calculate Cost per SF and its Z Score for flagging
+        if 'Gross Square Footage' in df.columns:
+            df['Cost_per_SF'] = df['Cost'] / df['Gross Square Footage']
+            cost_sf_mean, cost_sf_std = df['Cost_per_SF'].dropna().mean(), df['Cost_per_SF'].dropna().std()
+            df['Cost_per_SF_zscore'] = (df['Cost_per_SF'] - cost_sf_mean) / cost_sf_std if cost_sf_std != 0 else np.nan
+        else:
+            df['Cost_per_SF'] = np.nan
+            df['Cost_per_SF_zscore'] = np.nan
+        df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
@@ -237,20 +237,10 @@ def analyze_data(data_file, client_name, fp_file):
             'Usage', 'Cost', 'Service Address', 'Document'
         ]
         
-        # Moved columns
-        moved_columns = [
-            'Usage Z Score',
-            'Usage_per_SF_zscore',
-            'Usage_per_SF',
-            'Gap_Dates',
-            'Last Modified Date'
-        ]
-
-        # New order for rate columns
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
-            'Duplicate', 'Gap',
+            'Duplicate', 'Gap', 'Gap_Dates',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
             'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
@@ -262,34 +252,26 @@ def analyze_data(data_file, client_name, fp_file):
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score',
-            'Gross Square Footage', 'Common Area SF', 'Created Date', 'Area Covered',
+            'Usage Z Score', 
+            'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
+            'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + rate_columns + moved_columns + primary_flags + calculated_statistical_columns
+        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
-
-        st.info("Formatting date columns...")
-        # Apply the desired date format to all date-like columns
-        date_columns = ['Start Date', 'End Date', 'Created Date', 'Last Modified Date', 'Meter_First_Seen']
-        for col in date_columns:
-            if col in df.columns:
-                df[col] = df[col].dt.strftime(date_format)
         
         st.success("Analysis complete! Generating report...")
         
-        # In-memory Excel file
         output_file = io.BytesIO()
         with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-             # Sheet1 (Main Data)
             df.to_excel(writer, sheet_name='Main Data', index=False)
             
-            # Exporting other specific anomaly tabs (now all filter out false positives)
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True)) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True)) & (df['is_false_positive'] == False)].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
@@ -304,7 +286,6 @@ def analyze_data(data_file, client_name, fp_file):
                     tab_df.to_excel(writer, sheet_name=tab_name, index=False)
                     st.write(f"- '{tab_name}' tab added to report.")
 
-        # Display success message and download button
         st.download_button(
             label="Download Detailed Report",
             data=output_file.getvalue(),
@@ -335,7 +316,8 @@ def generate_summary_plots(df):
         'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
         'High Value Anomalies': (df_filtered['Usage Z Score'].abs() > 3.0).sum() +
                                  (df_filtered['Inspect_Usage_per_SF'] == True).sum() +
-                                 (df_filtered['Inspect_Rate'] == True).sum(),
+                                 (df_filtered['Inspect_Rate'] == True).sum() +
+                                 (df_filtered['Inspect_Cost_per_SF'] == True).sum(),
         'Negative Usage': df_filtered['Negative_Usage'].sum(),
         'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
