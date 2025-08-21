@@ -7,9 +7,6 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io # To handle the uploaded file-like object
-import requests
-import json
-import time
 
 # Suppress pandas RuntimeWarning for calculations with NaNs
 warnings.filterwarnings("ignore", "invalid value encountered in subtract", RuntimeWarning)
@@ -20,8 +17,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 
 # --- UI LAYOUT ---
-st.title("AI-Powered Utility Bill Data Quality Analyzer")
-st.markdown("This tool performs automated data quality checks and generates a detailed report with AI-powered insights.")
+st.title("Utility Bill Data Quality Analyzer")
+st.markdown("This tool performs automated data quality checks and generates a detailed report.")
 
 # Get client name dynamically
 current_client_name = st.text_input("Please enter the client name:", value="ClientA")
@@ -35,74 +32,10 @@ st.markdown("This feature is coming soon! A list of known false positives will b
 uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=["txt"], disabled=True)
 # --- END NEW ---
 
-# --- AI INTEGRATION FUNCTION ---
-def generate_ai_summary(bill_data):
-    """
-    Calls the Gemini API to generate a natural language summary of an anomaly.
-    This function will require an API key to be set as a secret.
-    """
-    prompt = f"""
-    Analyze the following utility bill data and provide a concise, natural language explanation of why it might be considered an anomaly.
-
-    Bill Data:
-    - Meter Number: {bill_data.get('Meter Number', 'N/A')}
-    - Utility: {bill_data.get('Utility', 'N/A')}
-    - Start Date: {bill_data.get('Start Date', 'N/A')}
-    - End Date: {bill_data.get('End Date', 'N/A')}
-    - Usage: {bill_data.get('Usage', 'N/A')}
-    - Cost: {bill_data.get('Cost', 'N/A')}
-    - Usage Z Score: {bill_data.get('Usage Z Score', 'N/A')}
-    - Rate Z Score: {bill_data.get('Rate Z Score', 'N/A')}
-    - Duplicated: {bill_data.get('Duplicate', 'N/A')}
-    - Gap Detected: {bill_data.get('Gap', 'N/A')}
-    
-    Provide a short, easy-to-understand summary. Do not use technical jargon.
-    """
-    
-    chatHistory = []
-    chatHistory.append({ "role": "user", "parts": [{ "text": prompt }] })
-    payload = { "contents": chatHistory }
-    
-    # We will get the API key from a secret in the Cloud Run environment
-    apiKey = os.environ.get("GEMINI_API_KEY", "")
-    apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={apiKey}"
-
-    if not apiKey:
-        return "API key is not set. Cannot generate AI summary."
-
-    try:
-        response = requests.post(
-            apiUrl,
-            headers={ 'Content-Type': 'application/json' },
-            data=json.dumps(payload),
-            timeout=30 # Set a timeout for the API call
-        )
-        response.raise_for_status()
-        result = response.json()
-        if result.get("candidates") and result["candidates"][0].get("content"):
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        return "AI could not generate a summary."
-    except Exception as e:
-        return f"Error from AI: {str(e)}"
-
 # --- CORE LOGIC FUNCTIONS ---
-
+# This function is now empty as the feature has been temporarily disabled
 def get_false_positive_list(client_name, fp_file):
-    """
-    Reads the false positive list from a text file for a given client.
-    This function is designed to work within a Streamlit app.
-    """
-    if fp_file is not None:
-        try:
-            fp_list = [int(line.decode('utf-8').strip()) for line in fp_file if line.strip()]
-            st.info(f"Loaded {len(fp_list)} false positives for '{client_name}'.")
-            return fp_list
-        except Exception as e:
-            st.warning(f"Error loading false positive file: {e}. No filters will be applied.")
-            return []
-    else:
-        st.warning(f"No false positive file found for '{client_name}'. No filters will be applied.")
-        return []
+    return []
 
 def analyze_data(data_file, client_name, fp_file):
     """
@@ -298,22 +231,6 @@ def analyze_data(data_file, client_name, fp_file):
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
-        # Create a flag for AI summaries
-        df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
-
-        # Call the AI to generate a summary for each flagged anomaly
-        df['AI_Summary'] = ''
-        with st.spinner("Generating AI Summaries... This may take a moment."):
-            # Filter for anomalies to analyze
-            anomaly_mask = (df['Is_High_Value_Anomaly'] == True) & (df['is_false_positive'] == False)
-            
-            # Use iterrows only on the filtered DataFrame for efficiency
-            for index, row in df[anomaly_mask].iterrows():
-                summary = generate_ai_summary(row)
-                df.loc[index, 'AI_Summary'] = summary
-                # Add a small delay to avoid hitting API rate limits
-                time.sleep(1)
-
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
@@ -330,21 +247,20 @@ def analyze_data(data_file, client_name, fp_file):
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
             'HCF_Conversion_Match',
-            'is_false_positive', 'Zero_Between_Positive',
-            'Is_High_Value_Anomaly'
+            'is_false_positive', 'Zero_Between_Positive'
         ]
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score',
+            'Usage Z Score', 
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen', 'Year_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns + ['AI_Summary']
+        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
         
@@ -355,7 +271,7 @@ def analyze_data(data_file, client_name, fp_file):
             df.to_excel(writer, sheet_name='Main Data', index=False)
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[df['Is_High_Value_Anomaly'] & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True)) & (df['is_false_positive'] == False)].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
