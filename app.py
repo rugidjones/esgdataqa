@@ -298,11 +298,14 @@ def analyze_data(data_file, client_name, fp_file):
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
+        # Create a flag for AI summaries
+        df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
+
         # Call the AI to generate a summary for each flagged anomaly
         df['AI_Summary'] = ''
         with st.spinner("Generating AI Summaries... This may take a moment."):
             # Filter for anomalies to analyze
-            anomaly_mask = (df['High Value Anomalies'] == True) | (df['Negative Usage'] == True) | (df['Duplicate'] == True)
+            anomaly_mask = (df['Is_High_Value_Anomaly'] == True) & (df['is_false_positive'] == False)
             
             # Use iterrows only on the filtered DataFrame for efficiency
             for index, row in df[anomaly_mask].iterrows():
@@ -317,16 +320,6 @@ def analyze_data(data_file, client_name, fp_file):
             'Usage', 'Cost', 'Service Address', 'Document'
         ]
         
-        # Moved columns
-        moved_columns = [
-            'Usage Z Score',
-            'Usage_per_SF_zscore',
-            'Usage_per_SF',
-            'Gap_Dates',
-            'Last Modified Date'
-        ]
-
-        # New order for rate columns
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
@@ -337,21 +330,24 @@ def analyze_data(data_file, client_name, fp_file):
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
             'HCF_Conversion_Match',
-            'is_false_positive', 'Zero_Between_Positive'
+            'is_false_positive', 'Zero_Between_Positive',
+            'Is_High_Value_Anomaly'
         ]
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score',
-            'Gross Square Footage', 'Common Area SF', 'Created Date',
+            'Usage Z Score', 
+            'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
+            'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
+            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen', 'Year_First_Seen'
         ]
 
-        master_column_order = core_identifying_columns + rate_columns + moved_columns + primary_flags + calculated_statistical_columns + ['AI_Summary']
+        master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns + ['AI_Summary']
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
-        
+
         st.success("Analysis complete! Generating report...")
         
         output_file = io.BytesIO()
@@ -359,7 +355,7 @@ def analyze_data(data_file, client_name, fp_file):
             df.to_excel(writer, sheet_name='Main Data', index=False)
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True)) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[df['Is_High_Value_Anomaly'] & (df['is_false_positive'] == False)].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
@@ -396,16 +392,14 @@ def generate_summary_plots(df):
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
     df_filtered = df[df['is_false_positive'] == False]
+    is_high_value_anomaly_count = df_filtered['Is_High_Value_Anomaly'].sum()
 
     issue_counts = {
         'Duplicates': df_filtered['Duplicate'].sum(),
         'Gaps': df_filtered['Gap'].sum(),
         'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum(),
         'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
-        'High Value Anomalies': (df_filtered['Usage Z Score'].abs() > 3.0).sum() +
-                                 (df_filtered['Inspect_Usage_per_SF'] == True).sum() +
-                                 (df_filtered['Inspect_Rate'] == True).sum() +
-                                 (df_filtered['Inspect_Cost_per_SF'] == True).sum(),
+        'High Value Anomalies': is_high_value_anomaly_count,
         'Negative Usage': df_filtered['Negative_Usage'].sum(),
         'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
@@ -416,7 +410,7 @@ def generate_summary_plots(df):
     issues_df = issues_df[issues_df['Count'] > 0].sort_values(by='Count', ascending=False)
 
     if issues_df.empty:
-        st.success("No major data quality issues were found! 🎉")
+        st.success("No major data quality issues were found! �")
     else:
         fig, ax = plt.subplots(figsize=(14, 7))
         sns.barplot(x='Count', y='Issue', hue='Issue', data=issues_df, palette='viridis', orient='h', legend=False, ax=ax)
@@ -441,4 +435,4 @@ if st.button('Run Analysis'):
             generate_summary_plots(df_processed)
     else:
         st.warning("Please upload a raw data file to begin the analysis.")
-
+�
