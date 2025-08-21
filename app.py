@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io # To handle the uploaded file-like object
 
 # Suppress pandas RuntimeWarning for calculations with NaNs
 warnings.filterwarnings("ignore", "invalid value encountered in subtract", RuntimeWarning)
@@ -270,6 +271,13 @@ def analyze_data(data_file, client_name, fp_file):
         master_column_order = core_identifying_columns + rate_columns + moved_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
+
+        st.info("Formatting date columns...")
+        # Apply the desired date format to all date-like columns
+        date_columns = ['Start Date', 'End Date', 'Created Date', 'Last Modified Date', 'Meter_First_Seen']
+        for col in date_columns:
+            if col in df.columns:
+                df[col] = df[col].dt.strftime(date_format)
         
         st.success("Analysis complete! Generating report...")
         
