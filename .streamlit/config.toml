@@ -1,14 +1,5 @@
 [server]
-port = 8080
-enableCORS = true
 headless = true
-maxUploadSize = 1000
-
-[browser]
-gatherUsageStats = false
-
-[global]
-server.enableXsrfProtection = false
-
-[server.timeout]
-websocketTimeout = 600000
+port = 8080
+enableCORS = false
+enableXsrfProtection = false
