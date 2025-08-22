@@ -37,7 +37,7 @@ uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=[
 def get_false_positive_list(client_name, fp_file):
     return []
 
-def analyze_data(data_file, client_name, generate_full_report):
+def analyze_data(data_file, client_name):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -228,8 +228,8 @@ def analyze_data(data_file, client_name, generate_full_report):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        # Note: The false positive logic is disabled in this version
-        df['is_false_positive'] = False
+        fp_list = get_false_positive_list(client_name, uploaded_fp_file)
+        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
         # Create a flag for High Value Anomalies
         df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
