@@ -228,8 +228,8 @@ def analyze_data(data_file, client_name, generate_full_report):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        # Note: The false positive logic is disabled in this version
-        df['is_false_positive'] = False
+        fp_list = get_false_positive_list(client_name, uploaded_fp_file)
+        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
         # Create a flag for High Value Anomalies
         df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
@@ -315,21 +315,17 @@ def generate_summary_plots(df):
     if 'HCF_Conversion_Match' in df.columns:
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
-    df_filtered = df
-    if 'is_false_positive' in df.columns:
-        df_filtered = df[df['is_false_positive'] == False]
-    
-    is_high_value_anomaly_count = df_filtered.get('Is_High_Value_Anomaly', pd.Series(dtype=bool)).sum()
+    is_high_value_anomaly_count = df['Is_High_Value_Anomaly'].sum()
 
     issue_counts = {
-        'Duplicates': df_filtered.get('Duplicate', pd.Series(dtype=bool)).sum(),
-        'Gaps': df_filtered.get('Gap', pd.Series(dtype=bool)).sum(),
-        'Zero-Usage Between Positives': df_filtered.get('Zero_Between_Positive', pd.Series(dtype=bool)).sum(),
-        'Zero Usage Positive Cost': df_filtered.get('Zero_Usage_Positive_Cost', pd.Series(dtype=bool)).sum(),
+        'Duplicates': df['Duplicate'].sum(),
+        'Gaps': df['Gap'].sum(),
+        'Zero-Usage Between Positives': df['Zero_Between_Positive'].sum(),
+        'Zero Usage Positive Cost': df['Zero_Usage_Positive_Cost'].sum(),
         'High Value Anomalies': is_high_value_anomaly_count,
-        'Negative Usage': df_filtered.get('Negative_Usage', pd.Series(dtype=bool)).sum(),
-        'New Bill Anomalies': df_filtered.get('New_Bill_Usage_Anomaly', pd.Series(dtype=bool)).sum(),
-        'Recently Modified Bills': df_filtered.get('Recently_Updated', pd.Series(dtype=bool)).sum(),
+        'Negative Usage': df['Negative_Usage'].sum(),
+        'New Bill Anomalies': df['New_Bill_Usage_Anomaly'].sum(),
+        'Recently Modified Bills': df['Recently_Updated'].sum(),
         'HCF Mismatch': hcf_mismatch_count,
     }
 
