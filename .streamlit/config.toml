@@ -1,3 +1,11 @@
 [server]
 port = 8080
-enableCORS = false
+enableCORS = true
+headless = true
+maxUploadSize = 1000
+
+[browser]
+gatherUsageStats = false
+
+[global]
+server.enableXsrfProtection = false
