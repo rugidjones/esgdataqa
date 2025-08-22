@@ -256,11 +256,11 @@ def analyze_data(data_file, client_name):
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Usage Z Score', 
+            'Cost Mean', 'Cost Standard', 'Cost Z Score',
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
+            'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
             'Meter_First_Seen', 'Year_First_Seen'
         ]
 
