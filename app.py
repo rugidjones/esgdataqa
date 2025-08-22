@@ -1,12 +1,23 @@
-import streamlit as st
+# --- INSTALLATION FOR COLAB: Ensures xlsxwriter is available ---
+import sys
+import subprocess
+try:
+    import xlsxwriter
+except ImportError:
+    print("Installing required package: xlsxwriter...")
+    # Use !pip in Colab for shell commands
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "xlsxwriter"])
+    print("Installation complete.")
+# --- END INSTALLATION ---
+
 import pandas as pd
 import warnings
 import numpy as np
 from datetime import datetime, timedelta
 import os
-import matplotlib.pyplot as plt
-import seaborn as sns
-import io # To handle the uploaded file-like object
+from google.colab import files # For Colab file upload functionality
+import matplotlib.pyplot as plt # For creating plots
+import seaborn as sns # For enhancing plot aesthetics
 
 # Suppress pandas RuntimeWarning for calculations with NaNs
 warnings.filterwarnings("ignore", "invalid value encountered in subtract", RuntimeWarning)
@@ -16,28 +27,12 @@ warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
 warnings.filterwarnings("ignore", category=UserWarning, module="xlsxwriter")
 
 
-# --- UI LAYOUT ---
-st.title("Utility Bill Data Quality Analyzer")
-st.markdown("This tool performs automated data quality checks and generates a detailed report.")
-
-# Get client name dynamically
-current_client_name = st.text_input("Please enter the client name:", value="ClientA")
-
-# File upload widgets
-uploaded_data_file = st.file_uploader("Upload Raw_Data_Table_S2.xlsx", type=["xlsx"])
- 
-# --- NEW: False Positive List section (visible but disabled) ---
-st.markdown("### False Positive List")
-st.markdown("This feature is coming soon! A list of known false positives will be automatically filtered from the reports.")
-uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=["txt"], disabled=True)
-# --- END NEW ---
-
 # --- CORE LOGIC FUNCTIONS ---
 # This function is now empty as the feature has been temporarily disabled
-def get_false_positive_list(client_name, fp_file):
+def get_false_positive_list(uploaded_fp_dict):
     return []
 
-def analyze_data(data_file, client_name, generate_full_report):
+def analyze_data(data_file_path, client_name, generate_full_report):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -46,14 +41,13 @@ def analyze_data(data_file, client_name, generate_full_report):
         pd.DataFrame: The final processed DataFrame containing all flags,
                       used for generating the summary plot.
     """
-    st.markdown("---")
-    st.header("Starting Data Analysis")
+    print("\n--- Starting Data Analysis ---")
     
     try:
-        st.info("1. Reading source data...")
-        df = pd.read_excel(data_file, sheet_name='Raw_Data_Table_S2')
+        print("1. Reading source data...")
+        df = pd.read_excel(data_file_path, sheet_name='Raw_Data_Table_S2')
 
-        st.info("2. Renaming columns and performing initial data cleaning...")
+        print("2. Renaming columns and performing initial data cleaning...")
         column_mapping = {
             'Property Name': 'Property Name',
             'Conservice Id': 'Conservice ID or Yoda Prop Code',
@@ -78,17 +72,17 @@ def analyze_data(data_file, client_name, generate_full_report):
             df = df[df['Account Number'].astype(str) != '~NA~'].copy()
             filtered_rows = initial_rows - len(df)
             if filtered_rows > 0:
-                st.write(f"   - Filtered out {filtered_rows} rows with '~NA~' in 'Account Number'.")
+                print(f"   - Filtered out {filtered_rows} rows with '~NA~' in 'Account Number'.")
 
         essential_columns = ['Meter Number', 'Start Date', 'End Date', 'Usage', 'Cost', 'Service Address', 'Property Name']
         missing_columns = [col for col in essential_columns if col not in df.columns]
         if missing_columns:
-            st.error(f"Missing essential columns: {', '.join(missing_columns)}")
+            print(f"Error: Missing essential columns: {', '.join(missing_columns)}")
             return None
 
         for col in ['Gross Square Footage', 'Common Area SF']:
             if col not in df.columns:
-                st.warning(f"'{col}' column not found in source file.")
+                print(f"Warning: '{col}' column not found in source file.")
 
         df['Start Date'] = pd.to_datetime(df['Start Date']).dt.date
         df['End Date'] = pd.to_datetime(df['End Date']).dt.date
@@ -132,7 +126,7 @@ def analyze_data(data_file, client_name, generate_full_report):
             df['Duplicate'] = df_clean.duplicated(subset=actual_duplicate_subset, keep=False)
         else:
             df['Duplicate'] = False
-            st.warning("No valid columns found for duplicate detection. 'Duplicate' column set to False for all rows.")
+            print("Warning: No valid columns found for duplicate detection. 'Duplicate' column set to False for all rows.")
 
         usage_mean = df['Usage'].dropna().mean()
         usage_std = df['Usage'].dropna().std()
@@ -213,12 +207,7 @@ def analyze_data(data_file, client_name, generate_full_report):
         else:
             df['Usage_per_SF'] = np.nan
             df['Usage_per_SF_zscore'] = np.nan
-
-        # Flag anomalies based on the calculated Z-scores
-        df['Inspect_Usage_per_SF'] = df['Usage_per_SF_zscore'].abs() > 3.0
-        df['Inspect_Rate'] = df['Rate Z Score'].abs() > 3.0
-        
-        # Calculate Cost per SF and its Z Score for flagging
+            
         if 'Gross Square Footage' in df.columns:
             df['Cost_per_SF'] = df['Cost'] / df['Gross Square Footage']
             cost_sf_mean, cost_sf_std = df['Cost_per_SF'].dropna().mean(), df['Cost_per_SF'].dropna().std()
@@ -226,18 +215,18 @@ def analyze_data(data_file, client_name, generate_full_report):
         else:
             df['Cost_per_SF'] = np.nan
             df['Cost_per_SF_zscore'] = np.nan
+        
+        df['Inspect_Usage_per_SF'] = df['Usage_per_SF_zscore'].abs() > 3.0
+        df['Inspect_Rate'] = df['Rate Z Score'].abs() > 3.0
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        fp_list = get_false_positive_list(client_name, uploaded_fp_file)
-        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
-
-        # Create a flag for High Value Anomalies
-        df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
+        # Create a boolean column for filtering false positives
+        df['is_false_positive'] = False
 
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
-            'Usage', 'Cost', 'Service Address', 'Document'
+            'Usage', 'Cost', 'Service Address', 'Gap_Dates', 'Document'
         ]
         
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
@@ -250,36 +239,33 @@ def analyze_data(data_file, client_name, generate_full_report):
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
             'HCF_Conversion_Match',
-            'is_false_positive', 'Zero_Between_Positive',
-            'Is_High_Value_Anomaly'
+            'is_false_positive', 'Zero_Between_Positive'
         ]
 
         calculated_statistical_columns = [
             'Usage MEAN', 'Usage Standard',
-            'Cost Mean', 'Cost Standard', 'Cost Z Score',
+            'Usage Z Score', 
             'Gross Square Footage', 'Common Area SF', 'Created Date', 'Last Modified Date',
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
-            'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
-            'Meter_First_Seen', 'Year_First_Seen',
-            'Gap_Dates'
+            'Cost Mean', 'Cost Standard', 'Cost Z Score', 'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
+            'Meter_First_Seen', 'Year_First_Seen'
         ]
 
         master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
 
+        # Re-index the DataFrame with the master column order.
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
-
-        st.success("Analysis complete! Generating report...")
         
-        output_file = io.BytesIO()
-        with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-            # Conditionally create the Main Data tab
-            if generate_full_report:
-                df.to_excel(writer, sheet_name='Main Data', index=False)
-                st.write(f"- 'Main Data' tab added to report.")
+        print("\nAnalysis complete! Generating report...")
+        
+        cleaned_file_path = 'cleaned_data.xlsx'
+        print("4. Generating output Excel file with formatted tabs...")
+        with pd.ExcelWriter(cleaned_file_path, engine='xlsxwriter') as writer:
+            df.to_excel(writer, sheet_name='Main Data', index=False)
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[df['Is_High_Value_Anomaly']].copy(),
+                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))].copy(),
                 'Negative Usage Records': df[(df['Negative_Usage'] == True)].copy(),
                 'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True)].copy(),
                 'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True)].copy(),
@@ -290,39 +276,34 @@ def analyze_data(data_file, client_name, generate_full_report):
             }
             
             for tab_name, tab_df in specific_anomaly_tabs.items():
-                 if not tab_df.empty:
+                if not tab_df.empty:
                     tab_df.to_excel(writer, sheet_name=tab_name, index=False)
-                    st.write(f"- '{tab_name}' tab added to report.")
-
-        st.download_button(
-            label="Download Detailed Report",
-            data=output_file.getvalue(),
-            file_name=f"{current_client_name}_cleaned_data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-        return df
+                    print(f"- '{tab_name}' tab added to report.")
+            
+            print(f"\nCleaned data saved to {cleaned_file_path}")
+            return df
 
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        print(f"An error occurred: {e}")
         return None
 
 def generate_summary_plots(df):
-    st.markdown("---")
-    st.header("Visual Summary of Findings")
+    print("\n5. Generating a visual summary of the findings...")
 
     hcf_mismatch_count = 0
     if 'HCF_Conversion_Match' in df.columns:
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
-    is_high_value_anomaly_count = df['Is_High_Value_Anomaly'].sum()
 
     issue_counts = {
         'Duplicates': df['Duplicate'].sum(),
         'Gaps': df['Gap'].sum(),
         'Zero-Usage Between Positives': df['Zero_Between_Positive'].sum(),
         'Zero Usage Positive Cost': df['Zero_Usage_Positive_Cost'].sum(),
-        'High Value Anomalies': is_high_value_anomaly_count,
+        'High Value Anomalies': (df['Usage Z Score'].abs() > 3.0).sum() +
+                                 (df['Inspect_Usage_per_SF'] == True).sum() +
+                                 (df['Inspect_Rate'] == True).sum() +
+                                 (df['Inspect_Cost_per_SF'] == True).sum(),
         'Negative Usage': df['Negative_Usage'].sum(),
         'New Bill Anomalies': df['New_Bill_Usage_Anomaly'].sum(),
         'Recently Modified Bills': df['Recently_Updated'].sum(),
@@ -333,7 +314,7 @@ def generate_summary_plots(df):
     issues_df = issues_df[issues_df['Count'] > 0].sort_values(by='Count', ascending=False)
 
     if issues_df.empty:
-        st.success("No major data quality issues were found! 🎉")
+        print("No major data quality issues were found! 🎉")
     else:
         fig, ax = plt.subplots(figsize=(14, 7))
         sns.barplot(x='Count', y='Issue', hue='Issue', data=issues_df, palette='viridis', orient='h', legend=False, ax=ax)
@@ -347,26 +328,53 @@ def generate_summary_plots(df):
             ax.text(row.Count, index, f' {int(row.Count)}', color='black', ha="left", va="center")
 
         plt.tight_layout()
-        st.pyplot(fig)
+        plt.show()
 
 
-# --- MAIN EXECUTION LOGIC ---
-# Added a checkbox to control the full report generation
-generate_full_report = st.checkbox("Generate a complete report (for files < 20MB)", value=True)
+if __name__ == "__main__":
+    print("🌟 Welcome to the Automated Utility Bill Data Quality Analyzer!")
+    print("This tool will perform a series of data checks and provide a detailed report.")
+    
+    # Clean up the output file from any previous runs
+    cleaned_output_file = 'cleaned_data.xlsx'
+    if os.path.exists(cleaned_output_file):
+        try:
+            os.remove(cleaned_output_file)
+            print("\nPrevious 'cleaned_data.xlsx' file has been removed for a fresh run.")
+        except Exception as e:
+            print(f"Warning: Could not remove previous '{cleaned_output_file}': {e}")
 
-if st.button('Run Analysis'):
-    if uploaded_data_file is not None:
-        file_size_mb = uploaded_data_file.size / (1024 * 1024)
-        if file_size_mb >= 20 and generate_full_report:
-            st.warning("File is larger than 20MB. Running without the full report to prevent crashes.")
-            df_processed = analyze_data(uploaded_data_file, current_client_name, False)
-        else:
-            df_processed = analyze_data(uploaded_data_file, current_client_name, generate_full_report)
+    try:
+        # Prompt user to upload the main data file
+        print("\nStep 1: Please upload your Raw_Data_Table_S2.xlsx file.")
+        uploaded_data = files.upload()
+        data_file_name = next(iter(uploaded_data))
+        data_file_path = f"/content/{data_file_name}"
+        print(f"Successfully uploaded '{data_file_name}'.")
+        
+        # We no longer prompt for a false positive file
+        fp_list = []
+
+        # Prompt user whether to generate a full report
+        generate_full_report_input = input("Generate a complete report? (y/n, default is 'y' for files < 20MB): ").strip().lower()
+        generate_full_report = generate_full_report_input in ('y', 'yes', '')
+
+        # Analyze data and conditionally generate reports
+        df_processed = analyze_data(data_file_path, generate_full_report)
 
         if df_processed is not None:
+            # Generate and display the summary plots based on user's choice
             if generate_full_report:
                 generate_summary_plots(df_processed)
             else:
-                st.write("Summary plot skipped for large files.")
-    else:
-        st.warning("Please upload a raw data file to begin the analysis.")
+                print("Summary plot skipped for large files.")
+
+            print("\n--- Presentation Ready! ---")
+            print("The `cleaned_data.xlsx` file is now ready for download from the Files pane on the left.")
+            print("It contains the master data plus separate tabs for each issue identified.")
+            print("Thank you for using the analyzer!")
+        else:
+            print("\nAnalysis failed. Please check the input file and try again.")
+
+    except Exception as e:
+        print(f"\nAn error occurred during file upload or processing: {str(e)}")
