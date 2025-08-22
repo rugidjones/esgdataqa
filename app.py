@@ -37,7 +37,7 @@ uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=[
 def get_false_positive_list(client_name, fp_file):
     return []
 
-def analyze_data(data_file, client_name):
+def analyze_data(data_file, client_name, generate_full_report):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -243,7 +243,7 @@ def analyze_data(data_file, client_name):
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
-            'Duplicate', 'Gap', 'Gap_Dates',
+            'Duplicate', 'Gap',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
             'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
@@ -261,7 +261,8 @@ def analyze_data(data_file, client_name):
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
             'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
-            'Meter_First_Seen', 'Year_First_Seen'
+            'Meter_First_Seen', 'Year_First_Seen',
+            'Gap_Dates'
         ]
 
         master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
@@ -272,7 +273,10 @@ def analyze_data(data_file, client_name):
         
         output_file = io.BytesIO()
         with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='Main Data', index=False)
+            # Conditionally create the Main Data tab
+            if generate_full_report:
+                df.to_excel(writer, sheet_name='Main Data', index=False)
+                st.write(f"- 'Main Data' tab added to report.")
             
             specific_anomaly_tabs = {
                 'High Value Anomalies': df[df['Is_High_Value_Anomaly']].copy(),
@@ -347,10 +351,22 @@ def generate_summary_plots(df):
 
 
 # --- MAIN EXECUTION LOGIC ---
+# Added a checkbox to control the full report generation
+generate_full_report = st.checkbox("Generate a complete report (for files < 20MB)", value=True)
+
 if st.button('Run Analysis'):
     if uploaded_data_file is not None:
-        df_processed = analyze_data(uploaded_data_file, current_client_name)
+        file_size_mb = uploaded_data_file.size / (1024 * 1024)
+        if file_size_mb >= 20 and generate_full_report:
+            st.warning("File is larger than 20MB. Running without the full report to prevent crashes.")
+            df_processed = analyze_data(uploaded_data_file, current_client_name, False)
+        else:
+            df_processed = analyze_data(uploaded_data_file, current_client_name, generate_full_report)
+
         if df_processed is not None:
-            generate_summary_plots(df_processed)
+            if generate_full_report:
+                generate_summary_plots(df_processed)
+            else:
+                st.write("Summary plot skipped for large files.")
     else:
         st.warning("Please upload a raw data file to begin the analysis.")
