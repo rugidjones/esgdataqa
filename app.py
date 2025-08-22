@@ -350,9 +350,7 @@ def generate_summary_plots(df):
 # --- MAIN EXECUTION LOGIC ---
 if st.button('Run Analysis'):
     if uploaded_data_file is not None:
-        # A placeholder variable for the now-disabled file uploader
-        uploaded_fp_file = None
-        df_processed = analyze_data(uploaded_data_file, current_client_name, uploaded_fp_file)
+        df_processed = analyze_data(uploaded_data_file, current_client_name)
         if df_processed is not None:
             generate_summary_plots(df_processed)
     else:
