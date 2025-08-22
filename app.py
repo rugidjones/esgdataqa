@@ -228,12 +228,6 @@ def analyze_data(data_file, client_name):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        fp_list = get_false_positive_list(client_name, uploaded_fp_file)
-        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
-        
-        # Create a flag for High Value Anomalies
-        df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
-
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
@@ -250,8 +244,7 @@ def analyze_data(data_file, client_name):
             'Use_Zero_Cost_NonZero', 'Negative_Usage', 'Zero_Usage_Positive_Cost',
             'New_Bill_Usage_Anomaly',
             'HCF_Conversion_Match',
-            'is_false_positive', 'Zero_Between_Positive',
-            'Is_High_Value_Anomaly'
+            'Zero_Between_Positive'
         ]
 
         calculated_statistical_columns = [
@@ -276,14 +269,14 @@ def analyze_data(data_file, client_name):
             df.to_excel(writer, sheet_name='Main Data', index=False)
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[df['Is_High_Value_Anomaly'] & (df['is_false_positive'] == False)].copy(),
-                'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
-                'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True) & (df['is_false_positive'] == False)].copy(),
-                'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna()) & (df['is_false_positive'] == False)].copy(),
-                'Duplicate Records': df[(df['Duplicate'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Gap Records': df[(df['Gap'] == True) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))].copy(),
+                'Negative Usage Records': df[(df['Negative_Usage'] == True)].copy(),
+                'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True)].copy(),
+                'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True)].copy(),
+                'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True)].copy(),
+                'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna())].copy(),
+                'Duplicate Records': df[(df['Duplicate'] == True)].copy(),
+                'Gap Records': df[(df['Gap'] == True)].copy(),
             }
             
             for tab_name, tab_df in specific_anomaly_tabs.items():
@@ -312,18 +305,18 @@ def generate_summary_plots(df):
     if 'HCF_Conversion_Match' in df.columns:
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
-    df_filtered = df[df['is_false_positive'] == False]
-    is_high_value_anomaly_count = df_filtered['Is_High_Value_Anomaly'].sum()
-
     issue_counts = {
-        'Duplicates': df_filtered['Duplicate'].sum(),
-        'Gaps': df_filtered['Gap'].sum(),
-        'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum(),
-        'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
-        'High Value Anomalies': is_high_value_anomaly_count,
-        'Negative Usage': df_filtered['Negative_Usage'].sum(),
-        'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
-        'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
+        'Duplicates': df['Duplicate'].sum(),
+        'Gaps': df['Gap'].sum(),
+        'Zero-Usage Between Positives': df['Zero_Between_Positive'].sum(),
+        'Zero Usage Positive Cost': df['Zero_Usage_Positive_Cost'].sum(),
+        'High Value Anomalies': (df['Usage Z Score'].abs() > 3.0).sum() +
+                                 (df['Inspect_Usage_per_SF'] == True).sum() +
+                                 (df['Inspect_Rate'] == True).sum() +
+                                 (df['Inspect_Cost_per_SF'] == True).sum(),
+        'Negative Usage': df['Negative_Usage'].sum(),
+        'New Bill Anomalies': df['New_Bill_Usage_Anomaly'].sum(),
+        'Recently Modified Bills': df['Recently_Updated'].sum(),
         'HCF Mismatch': hcf_mismatch_count,
     }
 
@@ -331,7 +324,7 @@ def generate_summary_plots(df):
     issues_df = issues_df[issues_df['Count'] > 0].sort_values(by='Count', ascending=False)
 
     if issues_df.empty:
-        st.success("No major data quality issues were found!")
+        st.success("No major data quality issues were found! 🎉")
     else:
         fig, ax = plt.subplots(figsize=(14, 7))
         sns.barplot(x='Count', y='Issue', hue='Issue', data=issues_df, palette='viridis', orient='h', legend=False, ax=ax)
@@ -351,9 +344,8 @@ def generate_summary_plots(df):
 # --- MAIN EXECUTION LOGIC ---
 if st.button('Run Analysis'):
     if uploaded_data_file is not None:
-        df_processed = analyze_data(uploaded_data_file, current_client_name, uploaded_fp_file)
+        df_processed = analyze_data(uploaded_data_file, current_client_name)
         if df_processed is not None:
             generate_summary_plots(df_processed)
     else:
         st.warning("Please upload a raw data file to begin the analysis.")
-
