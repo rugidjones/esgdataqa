@@ -1,20 +1,36 @@
-# Use an official Python runtime as a parent image
+# Use lightweight Python base
 FROM python:3.11-slim
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt ./
+# Install system dependencies for pandas, numpy, matplotlib, seaborn, etc.
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libatlas-base-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
+# Copy requirements
+COPY requirements.txt .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container at /app
+# Copy the rest of the app
 COPY . .
 
-# Expose the port that Streamlit runs on
+# Streamlit will look at this when deployed
 EXPOSE 8080
 
-# Run the app.py file using Streamlit and set the port
-CMD ["streamlit", "run", "app.py", "--server.port", "8080"]
+# Set environment variables so Streamlit runs correctly on GCP
+ENV PORT 8080
+ENV STREAMLIT_SERVER_PORT 8080
+ENV STREAMLIT_SERVER_HEADLESS true
+ENV STREAMLIT_SERVER_ENABLECORS false
+ENV STREAMLIT_SERVER_ENABLEXSRSFPROTECTION false
+
+# Command to run your app
+CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
