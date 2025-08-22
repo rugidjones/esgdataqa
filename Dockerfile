@@ -1,27 +1,20 @@
-# Use lightweight Python image
+# Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
-# Set working directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Install minimal system dependencies (no libatlas-base-dev)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libopenblas-dev \
-    liblapack-dev \
-    gfortran \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy the requirements file into the container at /app
+COPY requirements.txt ./
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
+# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy the rest of the application code into the container at /app
 COPY . .
 
-# Expose port 8080 (required for Cloud Run)
+# Expose the port that Streamlit runs on
 EXPOSE 8080
 
-# Run Streamlit in headless mode
-CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0", "--server.headless=true"]
+# Run the app.py file using Streamlit and set the port
+CMD ["streamlit", "run", "app.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
