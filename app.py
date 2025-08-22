@@ -37,7 +37,7 @@ uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=[
 def get_false_positive_list(client_name, fp_file):
     return []
 
-def analyze_data(data_file, client_name):
+def analyze_data(data_file, client_name, generate_full_report):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -228,8 +228,8 @@ def analyze_data(data_file, client_name):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        # Note: The false positive logic is disabled in this version
-        df['is_false_positive'] = False
+        fp_list = get_false_positive_list(client_name, uploaded_fp_file)
+        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
 
         # Create a flag for High Value Anomalies
         df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
@@ -237,7 +237,7 @@ def analyze_data(data_file, client_name):
         core_identifying_columns = [
             'Property Name', 'Location Bill ID', 'Control Number', 'Conservice ID or Yoda Prop Code', 'Provider Name',
             'Utility', 'Account Number', 'Meter Number', 'Unique Meter ID', 'Start Date', 'End Date',
-            'Usage', 'Cost', 'Service Address', 'Gap_Dates', 'Document'
+            'Usage', 'Cost', 'Service Address', 'Document'
         ]
         
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
@@ -261,7 +261,8 @@ def analyze_data(data_file, client_name):
             'Usage_per_SF', 'Usage_per_SF_zscore',
             'HCF', 'HCF_to_Gallons',
             'Cost_per_SF', 'Cost_per_SF_zscore', 'Inspect_Cost_per_SF',
-            'Meter_First_Seen', 'Year_First_Seen'
+            'Meter_First_Seen', 'Year_First_Seen',
+            'Gap_Dates'
         ]
 
         master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
