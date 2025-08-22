@@ -37,7 +37,7 @@ uploaded_fp_file = st.file_uploader("Upload false_positives_CAPREIT.txt", type=[
 def get_false_positive_list(client_name, fp_file):
     return []
 
-def analyze_data(data_file, client_name):
+def analyze_data(data_file, client_name, generate_full_report):
     """
     Analyzes utility bill data from an Excel file, performs various data quality
     checks, and exports the results to a new Excel file with multiple sheets.
@@ -228,8 +228,8 @@ def analyze_data(data_file, client_name):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        fp_list = get_false_positive_list(client_name, uploaded_fp_file)
-        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
+        # Note: The false positive logic is disabled in this version
+        df['is_false_positive'] = False
 
         # Create a flag for High Value Anomalies
         df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
@@ -279,14 +279,14 @@ def analyze_data(data_file, client_name):
                 st.write(f"- 'Main Data' tab added to report.")
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[df['Is_High_Value_Anomaly'] & (df['is_false_positive'] == False)].copy(),
-                'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
-                'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True) & (df['is_false_positive'] == False)].copy(),
-                'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna()) & (df['is_false_positive'] == False)].copy(),
-                'Duplicate Records': df[(df['Duplicate'] == True) & (df['is_false_positive'] == False)].copy(),
-                'Gap Records': df[(df['Gap'] == True) & (df['is_false_positive'] == False)].copy(),
+                'High Value Anomalies': df[df['Is_High_Value_Anomaly']].copy(),
+                'Negative Usage Records': df[(df['Negative_Usage'] == True)].copy(),
+                'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True)].copy(),
+                'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True)].copy(),
+                'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True)].copy(),
+                'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna())].copy(),
+                'Duplicate Records': df[(df['Duplicate'] == True)].copy(),
+                'Gap Records': df[(df['Gap'] == True)].copy(),
             }
             
             for tab_name, tab_df in specific_anomaly_tabs.items():
