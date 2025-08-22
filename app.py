@@ -230,7 +230,7 @@ def analyze_data(data_file, client_name):
 
         fp_list = get_false_positive_list(client_name, fp_file)
         df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
-
+        
         # Create a flag for High Value Anomalies
         df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
 
@@ -243,7 +243,7 @@ def analyze_data(data_file, client_name):
         rate_columns = ['Rate', 'Rate Z Score', 'Inspect_Rate']
         
         primary_flags = [
-            'Duplicate', 'Gap',
+            'Duplicate', 'Gap', 'Gap_Dates',
             'Consecutive_Anomalies_Count', 'Consistently_Anomalous_Meter',
             'Inspect_Usage_per_SF',
             'Recent_Modification', 'Recently_Updated', 'Recently_Created',
@@ -267,7 +267,7 @@ def analyze_data(data_file, client_name):
         master_column_order = core_identifying_columns + rate_columns + primary_flags + calculated_statistical_columns
 
         df = df.reindex(columns=master_column_order, fill_value=np.nan)
-
+        
         st.success("Analysis complete! Generating report...")
         
         output_file = io.BytesIO()
