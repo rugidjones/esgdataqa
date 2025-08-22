@@ -9,3 +9,6 @@ gatherUsageStats = false
 
 [global]
 server.enableXsrfProtection = false
+
+[server.timeout]
+websocketTimeout = 600000
