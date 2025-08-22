@@ -312,18 +312,21 @@ def generate_summary_plots(df):
     if 'HCF_Conversion_Match' in df.columns:
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
-    df_filtered = df[df['is_false_positive'] == False]
-    is_high_value_anomaly_count = df_filtered['Is_High_Value_Anomaly'].sum()
+    df_filtered = df
+    if 'is_false_positive' in df.columns:
+        df_filtered = df[df['is_false_positive'] == False]
+    
+    is_high_value_anomaly_count = df_filtered.get('Is_High_Value_Anomaly', pd.Series(dtype=bool)).sum()
 
     issue_counts = {
-        'Duplicates': df_filtered['Duplicate'].sum(),
-        'Gaps': df_filtered['Gap'].sum(),
-        'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum(),
-        'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum(),
+        'Duplicates': df_filtered['Duplicate'].sum() if 'Duplicate' in df_filtered.columns else 0,
+        'Gaps': df_filtered['Gap'].sum() if 'Gap' in df_filtered.columns else 0,
+        'Zero-Usage Between Positives': df_filtered['Zero_Between_Positive'].sum() if 'Zero_Between_Positive' in df_filtered.columns else 0,
+        'Zero Usage Positive Cost': df_filtered['Zero_Usage_Positive_Cost'].sum() if 'Zero_Usage_Positive_Cost' in df_filtered.columns else 0,
         'High Value Anomalies': is_high_value_anomaly_count,
-        'Negative Usage': df_filtered['Negative_Usage'].sum(),
-        'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum(),
-        'Recently Modified Bills': df_filtered['Recently_Updated'].sum(),
+        'Negative Usage': df_filtered['Negative_Usage'].sum() if 'Negative_Usage' in df_filtered.columns else 0,
+        'New Bill Anomalies': df_filtered['New_Bill_Usage_Anomaly'].sum() if 'New_Bill_Usage_Anomaly' in df_filtered.columns else 0,
+        'Recently Modified Bills': df_filtered['Recently_Updated'].sum() if 'Recently_Updated' in df_filtered.columns else 0,
         'HCF Mismatch': hcf_mismatch_count,
     }
 
@@ -331,7 +334,7 @@ def generate_summary_plots(df):
     issues_df = issues_df[issues_df['Count'] > 0].sort_values(by='Count', ascending=False)
 
     if issues_df.empty:
-        st.success("No major data quality issues were found! ")
+        st.success("No major data quality issues were found! 🎉")
     else:
         fig, ax = plt.subplots(figsize=(14, 7))
         sns.barplot(x='Count', y='Issue', hue='Issue', data=issues_df, palette='viridis', orient='h', legend=False, ax=ax)
@@ -356,4 +359,3 @@ if st.button('Run Analysis'):
             generate_summary_plots(df_processed)
     else:
         st.warning("Please upload a raw data file to begin the analysis.")
-
