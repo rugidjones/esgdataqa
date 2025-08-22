@@ -330,7 +330,7 @@ def generate_summary_plots(df):
     issues_df = issues_df[issues_df['Count'] > 0].sort_values(by='Count', ascending=False)
 
     if issues_df.empty:
-        st.success("No major data quality issues were found! 🎉")
+        st.success("No major data quality issues were found! �")
     else:
         fig, ax = plt.subplots(figsize=(14, 7))
         sns.barplot(x='Count', y='Issue', hue='Issue', data=issues_df, palette='viridis', orient='h', legend=False, ax=ax)
@@ -350,8 +350,9 @@ def generate_summary_plots(df):
 # --- MAIN EXECUTION LOGIC ---
 if st.button('Run Analysis'):
     if uploaded_data_file is not None:
-        df_processed = analyze_data(uploaded_data_file, current_client_name)
+        df_processed = analyze_data(uploaded_data_file, current_client_name, uploaded_fp_file)
         if df_processed is not None:
             generate_summary_plots(df_processed)
     else:
         st.warning("Please upload a raw data file to begin the analysis.")
+�
