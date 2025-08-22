@@ -279,14 +279,14 @@ def analyze_data(data_file, client_name):
                 st.write(f"- 'Main Data' tab added to report.")
             
             specific_anomaly_tabs = {
-                'High Value Anomalies': df[df['Is_High_Value_Anomaly']].copy(),
-                'Negative Usage Records': df[(df['Negative_Usage'] == True)].copy(),
-                'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True)].copy(),
-                'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True)].copy(),
-                'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True)].copy(),
-                'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna())].copy(),
-                'Duplicate Records': df[(df['Duplicate'] == True)].copy(),
-                'Gap Records': df[(df['Gap'] == True)].copy(),
+                'High Value Anomalies': df[df['Is_High_Value_Anomaly'] & (df['is_false_positive'] == False)].copy(),
+                'Negative Usage Records': df[(df['Negative_Usage'] == True) & (df['is_false_positive'] == False)].copy(),
+                'Zero Usage Positive Cost': df[(df['Zero_Usage_Positive_Cost'] == True) & (df['is_false_positive'] == False)].copy(),
+                'Zero_Between_Positive': df[(df['Zero_Between_Positive'] == True) & (df['is_false_positive'] == False)].copy(),
+                'New Bill Anomalies': df[(df['New_Bill_Usage_Anomaly'] == True) & (df['is_false_positive'] == False)].copy(),
+                'HCF Mismatch': df[((df['HCF_Conversion_Match'] == False) & df['HCF'].notna()) & (df['is_false_positive'] == False)].copy(),
+                'Duplicate Records': df[(df['Duplicate'] == True) & (df['is_false_positive'] == False)].copy(),
+                'Gap Records': df[(df['Gap'] == True) & (df['is_false_positive'] == False)].copy(),
             }
             
             for tab_name, tab_df in specific_anomaly_tabs.items():
@@ -315,17 +315,21 @@ def generate_summary_plots(df):
     if 'HCF_Conversion_Match' in df.columns:
         hcf_mismatch_count = df['HCF_Conversion_Match'].eq(False).sum()
 
-    is_high_value_anomaly_count = df['Is_High_Value_Anomaly'].sum()
+    df_filtered = df
+    if 'is_false_positive' in df.columns:
+        df_filtered = df[df['is_false_positive'] == False]
+    
+    is_high_value_anomaly_count = df_filtered.get('Is_High_Value_Anomaly', pd.Series(dtype=bool)).sum()
 
     issue_counts = {
-        'Duplicates': df['Duplicate'].sum(),
-        'Gaps': df['Gap'].sum(),
-        'Zero-Usage Between Positives': df['Zero_Between_Positive'].sum(),
-        'Zero Usage Positive Cost': df['Zero_Usage_Positive_Cost'].sum(),
+        'Duplicates': df_filtered.get('Duplicate', pd.Series(dtype=bool)).sum(),
+        'Gaps': df_filtered.get('Gap', pd.Series(dtype=bool)).sum(),
+        'Zero-Usage Between Positives': df_filtered.get('Zero_Between_Positive', pd.Series(dtype=bool)).sum(),
+        'Zero Usage Positive Cost': df_filtered.get('Zero_Usage_Positive_Cost', pd.Series(dtype=bool)).sum(),
         'High Value Anomalies': is_high_value_anomaly_count,
-        'Negative Usage': df['Negative_Usage'].sum(),
-        'New Bill Anomalies': df['New_Bill_Usage_Anomaly'].sum(),
-        'Recently Modified Bills': df['Recently_Updated'].sum(),
+        'Negative Usage': df_filtered.get('Negative_Usage', pd.Series(dtype=bool)).sum(),
+        'New Bill Anomalies': df_filtered.get('New_Bill_Usage_Anomaly', pd.Series(dtype=bool)).sum(),
+        'Recently Modified Bills': df_filtered.get('Recently_Updated', pd.Series(dtype=bool)).sum(),
         'HCF Mismatch': hcf_mismatch_count,
     }
 
