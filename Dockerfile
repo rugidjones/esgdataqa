@@ -1,28 +1,24 @@
-# Use a lightweight Python base image
+# Use lightweight Python image
 FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (no libatlas-base-dev)
+# Install only minimal system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libopenblas-dev \
-    liblapack-dev \
-    gfortran \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (better caching)
+# Copy and install Python dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Copy app code
 COPY . .
 
-# Expose port (Cloud Run requires 8080)
+# Expose port 8080
 EXPOSE 8080
 
-# Run the app
-CMD ["python", "app.py"]
+# Run Streamlit app
+CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
