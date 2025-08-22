@@ -1,20 +1,33 @@
-# Use a full Python runtime as a parent image
-FROM python:3.11
+# Use lightweight Python image
+FROM python:3.10-slim
 
-# Set the working directory in the container
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies (BLAS/LAPACK, compilers, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt ./
+# Copy dependency files
+COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container at /app
+# Copy application code
 COPY . .
 
-# Expose the port that Streamlit runs on
+# Expose port 8080 for Cloud Run
 EXPOSE 8080
 
-# Run the app.py file using Streamlit and set the port
-CMD ["streamlit", "run", "app.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
+# Run Flask app by default
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
