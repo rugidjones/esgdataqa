@@ -228,8 +228,10 @@ def analyze_data(data_file, client_name):
             df['Cost_per_SF_zscore'] = np.nan
         df['Inspect_Cost_per_SF'] = df['Cost_per_SF_zscore'].abs() > 3.0
 
-        fp_list = get_false_positive_list(client_name, fp_file)
-        df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
+        # Removed false positive logic, so fp_list is not used
+        # fp_list = get_false_positive_list(client_name, fp_file)
+        # df['is_false_positive'] = df['Location Bill ID'].isin(fp_list)
+        df['is_false_positive'] = False # Placeholder to avoid errors
 
         # Create a flag for High Value Anomalies
         df['Is_High_Value_Anomaly'] = ((df['Usage Z Score'].abs() > 3.0) | (df['Inspect_Usage_per_SF'] == True) | (df['Inspect_Rate'] == True) | (df['Inspect_Cost_per_SF'] == True))
